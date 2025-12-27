@@ -1,0 +1,351 @@
+{
+    "type": "object",
+    "properties": {
+      "landlord": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the full legal name of the landlord, which must be a string value. This name should represent the individual or entity that owns the property being leased and must be provided in its entirety, without abbreviations or initials. If the name is not available, this field may be set to null."
+              },
+              "address": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The \"address\" field under \"landlord\" must contain the complete physical address of the landlord, including street number, street name, city, state, and postal code. The extracted address should be formatted as a single string, ensuring that all components are included and properly punctuated. This field is essential for identifying the location of the landlord within the lease agreement context."
+              }
+            },
+            "required": [
+              "name",
+              "address"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"landlord\" field must contain an object that includes the landlord's name and address. The name should be a string representing the legal name of the landlord, while the address should be a string detailing the physical location of the landlord. Both properties are required for the landlord object to be valid. If no landlord information is available, this field may be null."
+      },
+      "tenant": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the full legal name of the tenant, which must be a string value. This name should represent the individual or entity entering into the lease agreement and should be formatted as it appears in official documents, without abbreviations or nicknames. Ensure that this field is populated, as it is a required component of the tenant's information in the lease agreement schema."
+              },
+              "address": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The \"address\" field under \"tenant\" must contain the complete physical address of the tenant's location, including street number, street name, city, state, and postal code. The address should be formatted as a single string and must not be null. This information is essential for identifying the tenant's premises and ensuring accurate lease documentation."
+              },
+              "industry_sector": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the industry sector of the tenant, which should be a string representing the specific industry or business sector in which the tenant operates, such as \"Retail,\" \"Technology,\" or \"Healthcare.\" Ensure that the extracted value is clear and accurately reflects the tenant's primary business focus. If no industry sector is applicable, this field may be null."
+              }
+            },
+            "required": [
+              "name",
+              "address",
+              "industry_sector"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"tenant\" field must contain an object that includes the tenant's name, address, and industry sector. The name and address must be strings, while the industry sector must also be a string, and all three properties are required for the tenant object. If no tenant information is available, this field can be null."
+      },
+      "lease_details": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "suite_number": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The \"suite_number\" field must contain the specific identifier or number assigned to the leased suite within the property. This value should be a string that clearly indicates the suite's designation, such as \"Suite 101\" or \"A-2\". Ensure that the extracted information accurately reflects the suite number as it appears in the lease agreement, as this is critical for identifying the leased space within the overall property."
+              },
+              "lease_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the lease type from the document, which specifies the classification of the lease agreement (e.g., \"gross lease,\" \"net lease,\" \"percentage lease\"). The value must be a string and should accurately reflect the nature of the lease as outlined in the lease agreement. Ensure that the extracted information is precise and adheres to the terminology used in the legal context of leasing."
+              },
+              "commencement_date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The \"commencement_date\" field must contain the start date of the lease agreement in the format \"YYYY-MM-DD\". This date indicates when the tenant is authorized to occupy the leased premises and is a critical component of the lease details, as it establishes the timeline for the lease term. Ensure that the extracted date is a valid calendar date and accurately reflects the information provided in the source document."
+              },
+              "expiration_date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The expiration_date field must contain the date on which the lease agreement terminates. This date should be formatted as a string in the ISO 8601 format (YYYY-MM-DD). It is essential to extract this information accurately to determine the lease's duration and any subsequent obligations or options related to the lease agreement."
+              },
+              "term_months": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the total number of months for the lease term into this field. This value must be an integer representing the duration of the lease in months, and it is required for the lease details section of the schema. Ensure that the extracted value is a positive whole number, as it indicates the length of time the lease agreement is valid."
+              },
+              "rentable_square_feet": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The `rentable_square_feet` field must contain the total area of the leased space expressed in square feet as an integer. This value should represent the usable space that the tenant is entitled to occupy under the lease agreement and must be extracted as a whole number without any decimal points or additional characters."
+              }
+            },
+            "required": [
+              "suite_number",
+              "lease_type",
+              "commencement_date",
+              "expiration_date",
+              "term_months",
+              "rentable_square_feet"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"lease_details\" field must contain an object that specifies the details of the lease agreement, including the suite number, lease type, commencement date, expiration date, term in months, and rentable square feet. Each of these properties is required and should be extracted as follows: \"suite_number\" as a string, \"lease_type\" as a string, \"commencement_date\" and \"expiration_date\" as strings formatted in a recognized date format (e.g., YYYY-MM-DD), \"term_months\" as an integer representing the duration of the lease, and \"rentable_square_feet\" as an integer indicating the total area leased."
+      },
+      "financial_terms": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "annual_base_rent": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the annual base rent amount for the lease agreement, expressed as an integer representing the total rent payable by the tenant to the landlord over a year. This value should be extracted from the relevant section of the lease document and must be a non-negative whole number, indicating the financial commitment of the tenant under the lease terms."
+              },
+              "monthly_base_rent": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the monthly base rent amount for the lease agreement, expressed as a numerical value in dollars. This value must be a positive number and should reflect the rent due each month, without including any additional fees or charges. Ensure that the extracted value is accurate and formatted as a decimal if necessary, for example, \"1500.00\"."
+              },
+              "base_rent_psf": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the base rent per square foot (base_rent_psf) for the lease agreement. This value must be a numeric type representing the annual base rent divided by the total rentable square feet of the leased space. Ensure the extracted value is a positive number or null if not applicable, and it should be included in the financial_terms section of the lease details."
+              },
+              "annual_escalation_pct": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the annual escalation percentage for the lease agreement, which represents the percentage increase in the base rent applied annually. This value must be an integer and should be expressed as a whole number without any decimal places, indicating the rate of increase in rent over the course of the lease term."
+              },
+              "additional_rent_estimate": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the estimated amount of additional rent that the tenant is expected to pay, which may include costs such as property taxes, insurance, and maintenance fees. This value must be a numeric type, representing the amount in the same currency as the lease agreement, and should be provided as a decimal number. Ensure that this figure is accurately captured as it directly affects the financial obligations of the tenant under the lease terms."
+              },
+              "pro_rata_share": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the pro rata share as a numerical value representing the tenant's proportionate share of common area expenses or costs in relation to the total leasable area of the property. This value must be expressed as a decimal or percentage and should be provided in a format that clearly indicates its numerical nature, such as \"0.25\" for 25%. Ensure accuracy in the extraction to reflect the tenant's financial obligations as outlined in the lease agreement."
+              },
+              "security_deposit": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the security deposit amount required by the landlord as part of the lease agreement. This value must be an integer representing the total dollar amount of the security deposit, and it should be extracted from the relevant section of the lease document. Ensure that the extracted value is accurate and corresponds to the specified financial terms of the lease."
+              }
+            },
+            "required": [
+              "annual_base_rent",
+              "monthly_base_rent",
+              "base_rent_psf",
+              "annual_escalation_pct",
+              "additional_rent_estimate",
+              "pro_rata_share",
+              "security_deposit"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"financial_terms\" field must contain an object that specifies the financial aspects of the lease agreement. This includes the annual base rent (in integer format), monthly base rent (in number format), base rent per square foot (in number format), annual escalation percentage (in integer format), additional rent estimate (in number format), pro rata share (in number format), and security deposit (in integer format). All specified properties are required for a complete extraction and must adhere to the defined data types."
+      },
+      "risk_and_options": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "renewal_options": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the specific terms related to renewal options for the lease agreement. This field should contain a string that explicitly states the conditions under which the tenant may renew the lease, including any limitations or requirements associated with the renewal process. Ensure the extracted information is clear and directly reflects the language used in the lease document."
+              },
+              "renewal_notice_days": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the number of days required for the tenant to provide notice to the landlord before the renewal of the lease. This field must contain an integer value that specifies the exact number of days, and it should be extracted as a whole number without any additional text or symbols."
+              },
+              "termination_rights": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the specific rights of the tenant to terminate the lease agreement before its expiration. This field should contain a clear and concise statement outlining the conditions under which termination is permitted, including any notice periods or requirements. The content must be in string format and should directly reflect the terms stated in the lease document."
+              },
+              "guarantor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The \"guarantor\" field must contain the name of the individual or entity that guarantees the lease obligations, ensuring that the tenant's financial responsibilities are met. This field should be a string and must not be null, as it is essential for identifying the party responsible for covering the lease in case of tenant default. Ensure that the extracted information is accurate and directly reflects the guarantor's name as stated in the lease agreement."
+              }
+            },
+            "required": [
+              "renewal_options",
+              "renewal_notice_days",
+              "termination_rights",
+              "guarantor"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"risk_and_options\" field must contain an object that details the terms related to lease renewal and termination rights. This includes the \"renewal_options\" (string), \"renewal_notice_days\" (integer), \"termination_rights\" (string), and \"guarantor\" (string), all of which are required. Each property must be extracted accurately to reflect the specific conditions and rights associated with the lease agreement."
+      }
+    },
+    "required": [
+      "landlord",
+      "tenant",
+      "lease_details",
+      "financial_terms",
+      "risk_and_options"
+    ]
+  }

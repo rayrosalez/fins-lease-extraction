@@ -1,0 +1,56 @@
+%sql
+INSERT INTO fins_team_3.lease_management.bronze_leases (
+  landlord_name, tenant_name, industry_sector, suite_number, lease_type, 
+  commencement_date, expiration_date, term_months, rentable_square_feet,
+  annual_base_rent, base_rent_psf, annual_escalation_pct, renewal_notice_days,
+  guarantor, raw_json_payload, is_fully_extracted, validation_status
+)
+WITH agent_raw_output AS (
+  SELECT 
+    raw_parsed_json AS input,
+    ai_query(
+      'kie-402320c5-endpoint',
+      raw_parsed_json,
+      failOnError => false
+    ) AS response
+  FROM fins_team_3.lease_management.raw_leases
+  LIMIT 20 
+),
+parsed_results AS (
+  SELECT
+    from_json(
+      CAST(response.result AS STRING),
+      '
+      landlord STRUCT<name: STRING, address: STRING>,
+      tenant STRUCT<name: STRING, address: STRING, industry_sector: STRING>,
+      lease_details STRUCT<suite_number: STRING, lease_type: STRING, commencement_date: DATE, expiration_date: DATE, term_months: INT, rentable_square_feet: INT>,
+      financial_terms STRUCT<annual_base_rent: INT, monthly_base_rent: DOUBLE, base_rent_psf: DOUBLE, annual_escalation_pct: INT, additional_rent_estimate: DOUBLE, pro_rata_share: DOUBLE, security_deposit: INT>,
+      risk_and_options STRUCT<renewal_options: STRING, renewal_notice_days: INT, termination_rights: STRING, guarantor: STRING>
+      '
+    ) as r,
+    response.result as raw_json
+  FROM agent_raw_output
+  WHERE response.errorMessage IS NULL
+)
+SELECT
+  r.landlord.name,
+  r.tenant.name,
+  r.tenant.industry_sector,
+  r.lease_details.suite_number,
+  r.lease_details.lease_type,
+  r.lease_details.commencement_date,
+  r.lease_details.expiration_date,
+  r.lease_details.term_months,
+  r.lease_details.rentable_square_feet,
+  r.financial_terms.annual_base_rent,
+  r.financial_terms.base_rent_psf,
+  r.financial_terms.annual_escalation_pct,
+  r.risk_and_options.renewal_notice_days,
+  r.risk_and_options.guarantor,
+  raw_json,
+  CASE 
+    WHEN r.tenant.name IS NULL OR r.financial_terms.annual_base_rent IS NULL THEN FALSE 
+    ELSE TRUE 
+  END as is_fully_extracted,
+  'NEW' as validation_status
+FROM parsed_results;

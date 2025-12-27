@@ -1131,9 +1131,9 @@ def main():
         st.markdown("---")
         
         st.markdown("#### Unity Catalog Settings")
-        catalog = st.text_input("Catalog", value="users", help="Unity Catalog name")
-        schema = st.text_input("Schema", value="ray_rosalez", help="Schema name")
-        volume = st.text_input("Volume", value="lease_uploads", help="Volume name")
+        catalog = st.text_input("Catalog", value="fins_team_3", help="Unity Catalog name")
+        schema = st.text_input("Schema", value="lease_management", help="Schema name")
+        volume = st.text_input("Volume", value="raw_lease_docs", help="Volume name")
         
         volume_path = f"/Volumes/{catalog}/{schema}/{volume}"
         
