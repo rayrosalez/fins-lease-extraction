@@ -1,16 +1,18 @@
 USE CATALOG fins_team_3;
 USE SCHEMA lease_management;
 
---DROP TABLE IF EXISTS fins_team_3.lease_management.silver_leases;
+-- Drop the existing silver table (since it's empty)
+--DROP TABLE IF EXISTS silver_leases;
 
-CREATE TABLE IF NOT EXISTS silver_leases (
-    -- Primary Key for the Portfolio
-    lease_id STRING, -- Standardized ID (e.g., PROP_TENANT_SUITE)
-    property_id STRING,
+-- Recreate with the complete schema needed for auto-promotion
+CREATE TABLE silver_leases (
+    -- Primary Keys
+    lease_id STRING COMMENT 'Unique lease identifier (landlord_tenant_suite)',
+    property_id STRING COMMENT 'Property identifier (PROP_landlord_suite)',
     
-    -- Cleaned & Normalized Business Fields
+    -- Core Business Fields
     tenant_name STRING,
-    industry_sector STRING, -- Normalized via AI or MCP (e.g., "Healthcare", "Retail")
+    industry_sector STRING COMMENT 'Normalized industry (Healthcare, Retail, etc.)',
     suite_id STRING,
     square_footage DOUBLE,
     lease_type STRING,
@@ -19,18 +21,24 @@ CREATE TABLE IF NOT EXISTS silver_leases (
     base_rent_psf DOUBLE,
     annual_escalation_pct DOUBLE,
     
-    -- Financial Calculations (Generated for Forecasting)
-    estimated_annual_rent DOUBLE,
-    next_escalation_date DATE,
+    -- Calculated/Enriched Fields
+    estimated_annual_rent DOUBLE COMMENT 'Calculated: square_footage * base_rent_psf',
+    next_escalation_date DATE COMMENT 'Next rent escalation date',
     
-    -- Audit & Governance (Crucial for PE Compliance)
-    enhancement_source STRING,  -- 'AI_ONLY', 'AI_MCP', or 'USER_ENTRY'
-    validation_status STRING,   -- 'PENDING', 'VERIFIED', 'OVERRIDDEN'
-    verified_by STRING,         -- Email of the analyst
-    verified_at TIMESTAMP,
-    raw_document_path STRING,   -- Path to the PDF in Unity Catalog Volumes for RAG/Genie
+    -- Audit & Governance Fields
+    enhancement_source STRING COMMENT 'AI_ONLY, AI_MCP, AI_HUMAN_VERIFIED, or USER_ENTRY',
+    validation_status STRING COMMENT 'PENDING, VERIFIED, or OVERRIDDEN',
+    verified_by STRING COMMENT 'User who verified the record',
+    verified_at TIMESTAMP COMMENT 'When the record was verified',
+    raw_document_path STRING COMMENT 'Path to source PDF in Unity Catalog Volumes',
     
-    updated_at TIMESTAMP
+    -- Metadata
+    updated_at TIMESTAMP COMMENT 'Last update timestamp'
 ) 
 USING DELTA
-TBLPROPERTIES (delta.enableChangeDataFeed = true);
+COMMENT 'Silver layer: Verified and enriched lease data ready for analytics'
+TBLPROPERTIES (
+    delta.enableChangeDataFeed = true,
+    delta.autoOptimize.optimizeWrite = true,
+    delta.autoOptimize.autoCompact = true
+);

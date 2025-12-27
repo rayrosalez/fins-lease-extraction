@@ -1,5 +1,6 @@
-streamlit
-databricks-sdk
-python-dotenv
-pandas
-plotly
+streamlit>=1.30.0
+databricks-sdk>=0.20.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+plotly>=5.18.0
+numpy>=1.24.0
