@@ -1,0 +1,5 @@
+# .env file - contains sensitive credentials
+.env
+*.pyc
+__pycache__/
+

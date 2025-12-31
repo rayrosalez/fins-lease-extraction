@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import './App.css';
 import Hero from './components/Hero';
-import Dashboard from './components/Dashboard';
+import Portfolio from './components/Portfolio';
+import Chat from './components/Chat';
+import Upload from './components/Upload';
 
 function App() {
   const [activeView, setActiveView] = useState('home');
@@ -22,29 +24,33 @@ function App() {
               Home
             </button>
             <button 
-              className={activeView === 'dashboard' ? 'nav-link active' : 'nav-link'}
-              onClick={() => setActiveView('dashboard')}
+              className={activeView === 'portfolio' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setActiveView('portfolio')}
             >
-              Dashboard
+              Portfolio
             </button>
             <button 
-              className="cta-button"
-              onClick={() => setActiveView('dashboard')}
+              className={activeView === 'chat' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setActiveView('chat')}
             >
-              Get Started
+              Chat
+            </button>
+            <button 
+              className={activeView === 'upload' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setActiveView('upload')}
+            >
+              Upload
             </button>
           </div>
         </div>
       </nav>
 
-      {activeView === 'home' ? (
-        <Hero />
-      ) : (
-        <Dashboard />
-      )}
+      {activeView === 'home' && <Hero />}
+      {activeView === 'portfolio' && <Portfolio />}
+      {activeView === 'chat' && <Chat />}
+      {activeView === 'upload' && <Upload />}
     </div>
   );
 }
 
 export default App;
-
