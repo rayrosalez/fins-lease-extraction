@@ -10,7 +10,9 @@ import './ValidationForm.css';
 const ValidationForm = ({ record, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     landlord_name: record.landlord_name || '',
+    landlord_address: record.landlord_address || '',
     tenant_name: record.tenant_name || '',
+    tenant_address: record.tenant_address || '',
     industry_sector: record.industry_sector || '',
     suite_number: record.suite_number || '',
     lease_type: record.lease_type || '',
@@ -22,7 +24,13 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
     base_rent_psf: record.base_rent_psf || '',
     annual_escalation_pct: record.annual_escalation_pct || '',
     renewal_notice_days: record.renewal_notice_days || '',
-    guarantor: record.guarantor || ''
+    guarantor: record.guarantor || '',
+    property_address: record.property_address || '',
+    property_street_address: record.property_street_address || '',
+    property_city: record.property_city || '',
+    property_state: record.property_state || '',
+    property_zip_code: record.property_zip_code || '',
+    property_country: record.property_country || ''
   });
 
   const [errors, setErrors] = useState({});
@@ -54,8 +62,16 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
 
   const fields = [
     { label: 'Landlord Name', key: 'landlord_name', required: true, icon: FiHome },
+    { label: 'Landlord Address', key: 'landlord_address', icon: FiMapPin },
     { label: 'Tenant Name', key: 'tenant_name', required: true, icon: FiUser },
+    { label: 'Tenant Address', key: 'tenant_address', icon: FiMapPin },
     { label: 'Industry Sector', key: 'industry_sector', icon: FiBriefcase },
+    { label: 'Property Address', key: 'property_address', icon: FiMapPin },
+    { label: 'Property Street', key: 'property_street_address', icon: FiMapPin },
+    { label: 'Property City', key: 'property_city', icon: FiMapPin },
+    { label: 'Property State', key: 'property_state', icon: FiMapPin },
+    { label: 'Property ZIP Code', key: 'property_zip_code', icon: FiMapPin },
+    { label: 'Property Country', key: 'property_country', icon: FiMapPin },
     { label: 'Suite Number', key: 'suite_number', icon: FiMapPin },
     { label: 'Lease Type', key: 'lease_type', icon: FiFileText },
     { label: 'Commencement Date', key: 'commencement_date', type: 'date', required: true, icon: FiCalendar },

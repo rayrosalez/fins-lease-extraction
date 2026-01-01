@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiRefreshCw } from 'react-icons/fi';
+import LeaseMap from './LeaseMap';
 import './Portfolio.css';
 
 const API_BASE_URL = 'http://localhost:5001/api';
@@ -10,6 +11,7 @@ const Portfolio = () => {
   const [recentExtractions, setRecentExtractions] = useState([]);
   const [allLeases, setAllLeases] = useState([]);
   const [marketSummary, setMarketSummary] = useState([]);
+  const [locationData, setLocationData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -23,17 +25,19 @@ const Portfolio = () => {
       setLoading(true);
       setError(null);
 
-      const [kpiResponse, recentResponse, leasesResponse, marketResponse] = await Promise.all([
+      const [kpiResponse, recentResponse, leasesResponse, marketResponse, locationResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/portfolio/kpis`),
         fetch(`${API_BASE_URL}/portfolio/recent`),
         fetch(`${API_BASE_URL}/portfolio/leases`),
-        fetch(`${API_BASE_URL}/portfolio/market-summary`)
+        fetch(`${API_BASE_URL}/portfolio/market-summary`),
+        fetch(`${API_BASE_URL}/portfolio/location-summary`)
       ]);
 
       if (kpiResponse.ok) setKpis(await kpiResponse.json());
       if (recentResponse.ok) setRecentExtractions(await recentResponse.json());
       if (leasesResponse.ok) setAllLeases(await leasesResponse.json());
       if (marketResponse.ok) setMarketSummary(await marketResponse.json());
+      if (locationResponse.ok) setLocationData(await locationResponse.json());
 
       setLoading(false);
     } catch (err) {
@@ -132,6 +136,12 @@ const Portfolio = () => {
             Overview
           </button>
           <button 
+            className={`tab-button ${activeTab === 'map' ? 'active' : ''}`}
+            onClick={() => setActiveTab('map')}
+          >
+            Map View
+          </button>
+          <button 
             className={`tab-button ${activeTab === 'leases' ? 'active' : ''}`}
             onClick={() => setActiveTab('leases')}
           >
@@ -170,6 +180,17 @@ const Portfolio = () => {
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'map' && (
+          <motion.div 
+            className="map-section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <LeaseMap locations={locationData} />
           </motion.div>
         )}
 

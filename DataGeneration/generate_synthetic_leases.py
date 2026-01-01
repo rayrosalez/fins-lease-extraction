@@ -72,20 +72,20 @@ LANDLORD_COMPANIES = [
     "Duke Realty"
 ]
 
-# City/Market data with typical rent ranges (PSF)
+# City/Market data with typical rent ranges (PSF) and state info
 MARKETS = {
-    "San Francisco": {"min_rent": 55, "max_rent": 95, "sqft_range": (2000, 25000)},
-    "New York": {"min_rent": 60, "max_rent": 100, "sqft_range": (1500, 30000)},
-    "Boston": {"min_rent": 45, "max_rent": 75, "sqft_range": (2000, 20000)},
-    "Austin": {"min_rent": 35, "max_rent": 55, "sqft_range": (3000, 35000)},
-    "Seattle": {"min_rent": 40, "max_rent": 70, "sqft_range": (2500, 28000)},
-    "Los Angeles": {"min_rent": 38, "max_rent": 65, "sqft_range": (2000, 30000)},
-    "Chicago": {"min_rent": 32, "max_rent": 52, "sqft_range": (2500, 25000)},
-    "Miami": {"min_rent": 35, "max_rent": 60, "sqft_range": (2000, 22000)},
-    "Denver": {"min_rent": 30, "max_rent": 50, "sqft_range": (3000, 26000)},
-    "Dallas": {"min_rent": 28, "max_rent": 45, "sqft_range": (3500, 35000)},
-    "Atlanta": {"min_rent": 25, "max_rent": 42, "sqft_range": (3000, 30000)},
-    "Phoenix": {"min_rent": 24, "max_rent": 40, "sqft_range": (3500, 32000)}
+    "San Francisco": {"min_rent": 55, "max_rent": 95, "sqft_range": (2000, 25000), "state": "California", "state_abbr": "CA", "zip_range": (94102, 94188)},
+    "New York": {"min_rent": 60, "max_rent": 100, "sqft_range": (1500, 30000), "state": "New York", "state_abbr": "NY", "zip_range": (10001, 10282)},
+    "Boston": {"min_rent": 45, "max_rent": 75, "sqft_range": (2000, 20000), "state": "Massachusetts", "state_abbr": "MA", "zip_range": (2108, 2298)},
+    "Austin": {"min_rent": 35, "max_rent": 55, "sqft_range": (3000, 35000), "state": "Texas", "state_abbr": "TX", "zip_range": (78701, 78799)},
+    "Seattle": {"min_rent": 40, "max_rent": 70, "sqft_range": (2500, 28000), "state": "Washington", "state_abbr": "WA", "zip_range": (98101, 98199)},
+    "Los Angeles": {"min_rent": 38, "max_rent": 65, "sqft_range": (2000, 30000), "state": "California", "state_abbr": "CA", "zip_range": (90001, 90089)},
+    "Chicago": {"min_rent": 32, "max_rent": 52, "sqft_range": (2500, 25000), "state": "Illinois", "state_abbr": "IL", "zip_range": (60601, 60661)},
+    "Miami": {"min_rent": 35, "max_rent": 60, "sqft_range": (2000, 22000), "state": "Florida", "state_abbr": "FL", "zip_range": (33101, 33199)},
+    "Denver": {"min_rent": 30, "max_rent": 50, "sqft_range": (3000, 26000), "state": "Colorado", "state_abbr": "CO", "zip_range": (80201, 80299)},
+    "Dallas": {"min_rent": 28, "max_rent": 45, "sqft_range": (3500, 35000), "state": "Texas", "state_abbr": "TX", "zip_range": (75201, 75398)},
+    "Atlanta": {"min_rent": 25, "max_rent": 42, "sqft_range": (3000, 30000), "state": "Georgia", "state_abbr": "GA", "zip_range": (30301, 30398)},
+    "Phoenix": {"min_rent": 24, "max_rent": 40, "sqft_range": (3500, 32000), "state": "Arizona", "state_abbr": "AZ", "zip_range": (85001, 85099)}
 }
 
 
@@ -138,6 +138,27 @@ def generate_lease_dates():
     return start_date.date(), end_date.date(), term_months
 
 
+def generate_address(city, state, state_abbr, zip_range):
+    """Generate a realistic street address"""
+    street_number = random.randint(100, 9999)
+    street_names = [
+        "Main Street", "Market Street", "Broadway", "Park Avenue", "Madison Avenue",
+        "Oak Street", "Maple Avenue", "Washington Boulevard", "Lincoln Way", "Commerce Drive",
+        "Business Parkway", "Tech Boulevard", "Innovation Drive", "Corporate Plaza"
+    ]
+    street = random.choice(street_names)
+    zip_code = str(random.randint(zip_range[0], zip_range[1]))
+    
+    return {
+        "street_address": f"{street_number} {street}",
+        "city": city,
+        "state": state,
+        "state_abbr": state_abbr,
+        "zip_code": zip_code,
+        "full_address": f"{street_number} {street}, {city}, {state_abbr} {zip_code}"
+    }
+
+
 def generate_synthetic_lease(lease_id):
     """Generate a single synthetic lease record"""
     
@@ -148,10 +169,48 @@ def generate_synthetic_lease(lease_id):
     # Generate dates
     commencement_date, expiration_date, term_months = generate_lease_dates()
     
+    # Generate timestamp for upload (simulate various upload times)
+    uploaded_at = datetime.now() - timedelta(
+        days=random.randint(0, 30),
+        hours=random.randint(0, 23),
+        minutes=random.randint(0, 59)
+    )
+    
     # Generate company details
     industry = random.choice(INDUSTRIES)
     tenant_name = generate_company_name(industry)
     landlord_name = random.choice(LANDLORD_COMPANIES)
+    
+    # Generate property location (where the leased property is)
+    property_location = generate_address(
+        market, 
+        market_data["state"], 
+        market_data["state_abbr"],
+        market_data["zip_range"]
+    )
+    
+    # Generate landlord address (could be in a different city for corporate offices)
+    landlord_city = random.choice(list(MARKETS.keys()))
+    landlord_market = MARKETS[landlord_city]
+    landlord_location = generate_address(
+        landlord_city,
+        landlord_market["state"],
+        landlord_market["state_abbr"],
+        landlord_market["zip_range"]
+    )
+    
+    # Generate tenant address (often same as property, but could be different for corporate HQ)
+    if random.random() < 0.7:  # 70% chance tenant address is same as property
+        tenant_location = property_location
+    else:
+        tenant_city = random.choice(list(MARKETS.keys()))
+        tenant_market = MARKETS[tenant_city]
+        tenant_location = generate_address(
+            tenant_city,
+            tenant_market["state"],
+            tenant_market["state_abbr"],
+            tenant_market["zip_range"]
+        )
     
     # Generate square footage
     sqft_min, sqft_max = market_data["sqft_range"]
@@ -183,12 +242,15 @@ def generate_synthetic_lease(lease_id):
     # Validation status
     validation_status = random.choice(["VERIFIED", "VERIFIED", "VERIFIED", "PENDING"])
     
-    # Create raw JSON payload (simulating AI extraction)
-    raw_json = f'{{"tenant": "{tenant_name}", "landlord": "{landlord_name}", "industry": "{industry}", "sqft": {square_feet}}}'
+    # Create raw JSON payload (simulating AI extraction with location data)
+    raw_json = f'{{"tenant": "{tenant_name}", "landlord": "{landlord_name}", "industry": "{industry}", "sqft": {square_feet}, "location": "{property_location["city"]}, {property_location["state_abbr"]}"}}'
     
     return {
+        "uploaded_at": uploaded_at,
         "landlord_name": landlord_name,
+        "landlord_address": landlord_location["full_address"],
         "tenant_name": tenant_name,
+        "tenant_address": tenant_location["full_address"],
         "industry_sector": industry,
         "suite_number": suite_number,
         "lease_type": lease_type,
@@ -201,6 +263,12 @@ def generate_synthetic_lease(lease_id):
         "annual_escalation_pct": float(annual_escalation_pct),
         "renewal_notice_days": renewal_notice_days,
         "guarantor": guarantor,
+        "property_address": property_location["full_address"],
+        "property_street_address": property_location["street_address"],
+        "property_city": property_location["city"],
+        "property_state": property_location["state_abbr"],
+        "property_zip_code": property_location["zip_code"],
+        "property_country": "United States",
         "raw_json_payload": raw_json,
         "is_fully_extracted": True,
         "validation_status": validation_status
@@ -217,10 +285,14 @@ def generate_values_clause(lease):
         return str(value).replace("'", "''")
     
     guarantor_value = f"'{escape_sql(lease['guarantor'])}'" if lease['guarantor'] else "NULL"
+    uploaded_at_value = f"'{lease['uploaded_at'].strftime('%Y-%m-%d %H:%M:%S')}'"
     
     values = f"""(
+        {uploaded_at_value},
         '{escape_sql(lease['landlord_name'])}',
+        '{escape_sql(lease['landlord_address'])}',
         '{escape_sql(lease['tenant_name'])}',
+        '{escape_sql(lease['tenant_address'])}',
         '{escape_sql(lease['industry_sector'])}',
         '{escape_sql(lease['suite_number'])}',
         '{escape_sql(lease['lease_type'])}',
@@ -233,6 +305,12 @@ def generate_values_clause(lease):
         {lease['annual_escalation_pct']},
         {lease['renewal_notice_days']},
         {guarantor_value},
+        '{escape_sql(lease['property_address'])}',
+        '{escape_sql(lease['property_street_address'])}',
+        '{escape_sql(lease['property_city'])}',
+        '{escape_sql(lease['property_state'])}',
+        '{escape_sql(lease['property_zip_code'])}',
+        '{escape_sql(lease['property_country'])}',
         '{escape_sql(lease['raw_json_payload'])}',
         {'TRUE' if lease['is_fully_extracted'] else 'FALSE'},
         '{escape_sql(lease['validation_status'])}'
@@ -249,10 +327,13 @@ def generate_batch_insert_statement(leases, catalog, schema, table):
     
     # Combine into single INSERT statement
     sql = f"""INSERT INTO {catalog}.{schema}.{table} (
-        landlord_name, tenant_name, industry_sector, suite_number, lease_type,
-        commencement_date, expiration_date, term_months, rentable_square_feet,
-        annual_base_rent, base_rent_psf, annual_escalation_pct, renewal_notice_days,
-        guarantor, raw_json_payload, is_fully_extracted, validation_status
+        uploaded_at, landlord_name, landlord_address, tenant_name, tenant_address,
+        industry_sector, suite_number, lease_type, commencement_date, expiration_date,
+        term_months, rentable_square_feet, annual_base_rent, base_rent_psf,
+        annual_escalation_pct, renewal_notice_days, guarantor,
+        property_address, property_street_address, property_city, property_state,
+        property_zip_code, property_country,
+        raw_json_payload, is_fully_extracted, validation_status
     ) VALUES
 {','.join(values_clauses)}"""
     

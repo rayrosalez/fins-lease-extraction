@@ -242,6 +242,40 @@ def get_market_summary():
     
     return jsonify(markets)
 
+@app.route('/api/portfolio/location-summary', methods=['GET'])
+def get_location_summary():
+    """Get lease counts and data by location (city/state)"""
+    query = f"""
+    SELECT 
+        COALESCE(property_city, 'Unknown') as city,
+        COALESCE(property_state, 'Unknown') as state,
+        COUNT(*) as lease_count,
+        SUM(rentable_square_feet) as total_sqft,
+        AVG(base_rent_psf) as avg_rent_psf,
+        SUM(annual_base_rent) as total_annual_rent
+    FROM {CATALOG}.{SCHEMA}.bronze_leases
+    WHERE property_city IS NOT NULL
+    GROUP BY property_city, property_state
+    ORDER BY lease_count DESC
+    """
+    
+    data, error = execute_query(query)
+    if error:
+        return jsonify({'error': error}), 500
+    
+    locations = []
+    for row in data:
+        locations.append({
+            'city': row[0],
+            'state': row[1],
+            'lease_count': int(row[2]) if row[2] else 0,
+            'total_sqft': float(row[3]) if row[3] else 0,
+            'avg_rent_psf': float(row[4]) if row[4] else 0,
+            'total_annual_rent': float(row[5]) if row[5] else 0
+        })
+    
+    return jsonify(locations)
+
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     """Upload a lease document to Databricks volume"""
@@ -322,12 +356,16 @@ def check_processing(file_path):
             return jsonify({'processed': False, 'message': 'File not yet ingested'})
         
         # File found in raw_leases, now check if it's been extracted to bronze
-        # We'll look for the most recently extracted record since we don't have file_path in bronze
+        # Get the ingested_at timestamp from raw to match with uploaded_at in bronze
+        raw_ingested_at = raw_data[0][1]  # ingested_at from raw_leases
+        
         bronze_query = f"""
         SELECT 
             extraction_id,
             landlord_name,
+            landlord_address,
             tenant_name,
+            tenant_address,
             industry_sector,
             suite_number,
             lease_type,
@@ -340,9 +378,17 @@ def check_processing(file_path):
             annual_escalation_pct,
             renewal_notice_days,
             guarantor,
+            property_address,
+            property_street_address,
+            property_city,
+            property_state,
+            property_zip_code,
+            property_country,
             validation_status,
+            uploaded_at,
             extracted_at
         FROM {CATALOG}.{SCHEMA}.bronze_leases
+        WHERE uploaded_at = '{raw_ingested_at}'
         ORDER BY extracted_at DESC
         LIMIT 1
         """
@@ -355,27 +401,33 @@ def check_processing(file_path):
         
         if bronze_data and len(bronze_data) > 0:
             row = bronze_data[0]
-            # Check if this record was extracted recently (within last 5 minutes of the raw ingestion)
-            # This is a heuristic since we don't have direct file_path linkage
             record = {
                 'extraction_id': row[0],
                 'landlord_name': row[1],
-                'tenant_name': row[2],
-                'industry_sector': row[3],
-                'suite_number': row[4],
-                'lease_type': row[5],
-                'commencement_date': row[6],
-                'expiration_date': row[7],
-                'term_months': row[8],
-                'rentable_square_feet': row[9],
-                'annual_base_rent': row[10],
-                'base_rent_psf': row[11],
-                'annual_escalation_pct': row[12],
-                'renewal_notice_days': row[13],
-                'guarantor': row[14],
-                'validation_status': row[15]
+                'landlord_address': row[2],
+                'tenant_name': row[3],
+                'tenant_address': row[4],
+                'industry_sector': row[5],
+                'suite_number': row[6],
+                'lease_type': row[7],
+                'commencement_date': row[8],
+                'expiration_date': row[9],
+                'term_months': row[10],
+                'rentable_square_feet': row[11],
+                'annual_base_rent': row[12],
+                'base_rent_psf': row[13],
+                'annual_escalation_pct': row[14],
+                'renewal_notice_days': row[15],
+                'guarantor': row[16],
+                'property_address': row[17],
+                'property_street_address': row[18],
+                'property_city': row[19],
+                'property_state': row[20],
+                'property_zip_code': row[21],
+                'property_country': row[22],
+                'validation_status': row[23]
             }
-            print(f"Found bronze record: extraction_id={row[0]}")
+            print(f"Found bronze record for uploaded file: extraction_id={row[0]}")
             return jsonify({'processed': True, 'record': record})
         
         print(f"File ingested to raw but not yet extracted to bronze")
@@ -444,7 +496,14 @@ def validate_record():
             base_rent_psf,
             annual_escalation_pct,
             renewal_notice_days,
-            guarantor
+            guarantor,
+            property_address,
+            property_street_address,
+            property_city,
+            property_state,
+            property_zip_code,
+            property_country,
+            uploaded_at
         FROM {CATALOG}.{SCHEMA}.bronze_leases
         WHERE extraction_id = {extraction_id}
         """
@@ -468,6 +527,15 @@ def validate_record():
         square_footage = float(row[8]) if row[8] else 0
         base_rent_psf = float(row[10]) if row[10] else 0
         estimated_annual_rent = square_footage * base_rent_psf if square_footage and base_rent_psf else (float(row[9]) if row[9] else 0)
+        
+        # Get location fields
+        property_address = row[14] if len(row) > 14 else None
+        property_street_address = row[15] if len(row) > 15 else None
+        property_city = row[16] if len(row) > 16 else None
+        property_state = row[17] if len(row) > 17 else None
+        property_zip_code = row[18] if len(row) > 18 else None
+        property_country = row[19] if len(row) > 19 else None
+        uploaded_at = row[20] if len(row) > 20 else None
         
         # Prepare values for silver insert
         def sql_safe_value(val):
@@ -494,6 +562,12 @@ def validate_record():
                 {sql_safe_value(row[6])} as lease_end_date,
                 {row[10] if row[10] else 'NULL'} as base_rent_psf,
                 {row[11] if row[11] else 'NULL'} as annual_escalation_pct,
+                {sql_safe_value(property_address)} as property_address,
+                {sql_safe_value(property_street_address)} as property_street_address,
+                {sql_safe_value(property_city)} as property_city,
+                {sql_safe_value(property_state)} as property_state,
+                {sql_safe_value(property_zip_code)} as property_zip_code,
+                {sql_safe_value(property_country)} as property_country,
                 {estimated_annual_rent} as estimated_annual_rent,
                 NULL as next_escalation_date,
                 'AI_HUMAN_VERIFIED' as enhancement_source,
@@ -501,6 +575,7 @@ def validate_record():
                 'web_user' as verified_by,
                 CURRENT_TIMESTAMP() as verified_at,
                 NULL as raw_document_path,
+                {sql_safe_value(uploaded_at)} as uploaded_at,
                 CURRENT_TIMESTAMP() as updated_at
         ) AS source
         ON target.lease_id = source.lease_id
