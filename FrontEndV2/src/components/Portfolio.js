@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiRefreshCw } from 'react-icons/fi';
 import LeaseMap from './LeaseMap';
+import RiskAssessment from './RiskAssessment';
 import './Portfolio.css';
 
 const API_BASE_URL = 'http://localhost:5001/api';
@@ -136,6 +137,12 @@ const Portfolio = () => {
             Overview
           </button>
           <button 
+            className={`tab-button ${activeTab === 'risk' ? 'active' : ''}`}
+            onClick={() => setActiveTab('risk')}
+          >
+            Risk Assessment
+          </button>
+          <button 
             className={`tab-button ${activeTab === 'map' ? 'active' : ''}`}
             onClick={() => setActiveTab('map')}
           >
@@ -180,6 +187,17 @@ const Portfolio = () => {
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'risk' && (
+          <motion.div 
+            className="risk-section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <RiskAssessment />
           </motion.div>
         )}
 

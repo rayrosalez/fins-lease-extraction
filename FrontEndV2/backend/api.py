@@ -1052,6 +1052,69 @@ def chat_query():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/portfolio/risk-assessment', methods=['GET'])
+def get_risk_assessment():
+    """Get comprehensive risk assessment data from gold layer"""
+    try:
+        query = f"""
+        SELECT 
+            lease_id,
+            tenant_name,
+            property_id,
+            industry_sector,
+            lease_end_date,
+            annual_escalation_pct,
+            estimated_annual_rent,
+            square_footage,
+            days_to_expiry,
+            sector_risk_base,
+            portfolio_concentration_pct,
+            rollover_score,
+            escalation_risk_score,
+            concentration_risk_score,
+            lease_status,
+            total_risk_score
+        FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
+        WHERE total_risk_score IS NOT NULL
+        ORDER BY total_risk_score DESC
+        LIMIT 100
+        """
+        
+        data, error = execute_query(query)
+        if error:
+            return jsonify({'error': error}), 500
+        
+        if not data:
+            return jsonify([])
+        
+        results = []
+        for row in data:
+            results.append({
+                'lease_id': row[0],
+                'tenant_name': row[1],
+                'property_id': row[2],
+                'industry_sector': row[3],
+                'lease_end_date': row[4],
+                'annual_escalation_pct': float(row[5]) if row[5] is not None else 0,
+                'estimated_annual_rent': float(row[6]) if row[6] is not None else 0,
+                'square_footage': float(row[7]) if row[7] is not None else 0,
+                'days_to_expiry': int(row[8]) if row[8] is not None else 0,
+                'sector_risk_base': float(row[9]) if row[9] is not None else 0,
+                'portfolio_concentration_pct': float(row[10]) if row[10] is not None else 0,
+                'rollover_score': float(row[11]) if row[11] is not None else 0,
+                'escalation_risk_score': float(row[12]) if row[12] is not None else 0,
+                'concentration_risk_score': float(row[13]) if row[13] is not None else 0,
+                'lease_status': row[14],
+                'total_risk_score': float(row[15]) if row[15] is not None else 0
+            })
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        error_msg = f"Exception in risk_assessment: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
 
