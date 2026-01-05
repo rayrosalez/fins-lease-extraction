@@ -160,6 +160,12 @@ const Portfolio = () => {
           >
             Market Summary
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'glossary' ? 'active' : ''}`}
+            onClick={() => setActiveTab('glossary')}
+          >
+            Glossary
+          </button>
         </div>
 
         {activeTab === 'overview' && (
@@ -287,6 +293,70 @@ const Portfolio = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'glossary' && (
+          <motion.div 
+            className="glossary-section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="section-title">Glossary of Terms</h2>
+            <div className="glossary-grid">
+              <div className="glossary-card">
+                <div className="glossary-term">PSF</div>
+                <div className="glossary-full-term">Price Per Square Foot</div>
+                <div className="glossary-definition">
+                  A standard commercial real estate metric that represents the annual rental cost 
+                  divided by the total rentable square footage of a space. PSF allows for easy 
+                  comparison of rental rates across properties of different sizes. For example, 
+                  a lease with $50 PSF on a 10,000 sq ft space would have an annual rent of $500,000.
+                </div>
+                <div className="glossary-formula">
+                  <span className="formula-label">Formula:</span>
+                  <code>PSF = Annual Base Rent ÷ Rentable Square Feet</code>
+                </div>
+              </div>
+
+              <div className="glossary-card">
+                <div className="glossary-term">WALT</div>
+                <div className="glossary-full-term">Weighted Average Lease Term</div>
+                <div className="glossary-definition">
+                  A key portfolio metric that calculates the average remaining lease duration, 
+                  weighted by each lease's contribution to total rental income or square footage. 
+                  WALT helps investors understand the stability of cash flows and the timeline 
+                  for potential vacancy risk. A higher WALT generally indicates more stable, 
+                  long-term income streams.
+                </div>
+                <div className="glossary-formula">
+                  <span className="formula-label">Formula:</span>
+                  <code>WALT = Σ(Remaining Term × Annual Rent) ÷ Total Annual Rent</code>
+                </div>
+              </div>
+
+              <div className="glossary-card">
+                <div className="glossary-term">Risk Score</div>
+                <div className="glossary-full-term">Tenant Credit & Lease Risk Assessment</div>
+                <div className="glossary-definition">
+                  A composite score (typically 1-10) that evaluates the overall risk profile of 
+                  a lease or tenant. Factors considered may include tenant creditworthiness, 
+                  industry stability, lease term remaining, rental rate relative to market, 
+                  and geographic concentration. Lower scores indicate lower risk, while higher 
+                  scores suggest increased attention may be needed.
+                </div>
+                <div className="glossary-factors">
+                  <span className="factors-label">Key Factors:</span>
+                  <ul>
+                    <li>Tenant credit rating & financial health</li>
+                    <li>Industry sector volatility</li>
+                    <li>Time until lease expiration</li>
+                    <li>Market rent comparison</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
