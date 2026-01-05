@@ -91,6 +91,93 @@
         ],
         "description": "The \"tenant\" field must contain an object that includes the tenant's name, address, and industry sector. The name and address must be strings, while the industry sector must also be a string, and all three properties are required for the tenant object. If no tenant information is available, this field can be null."
       },
+      "property_location": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "full_address": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the complete physical address of the leased property, including all components (street address, city, state, ZIP code, and country if available). This should be formatted as a single string that captures the full location of the property being leased."
+              },
+              "street_address": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the street address of the property, including the street number and street name. For example, \"123 Main Street\" or \"456 Commerce Boulevard\". This field should contain only the street-level address component."
+              },
+              "city": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the city where the leased property is located. This should be the municipality or city name as it appears in the lease agreement, such as \"San Francisco\" or \"New York\"."
+              },
+              "state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the state or province where the leased property is located. This can be the full state name (e.g., \"California\") or the standard abbreviation (e.g., \"CA\")."
+              },
+              "zip_code": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the postal code or ZIP code of the property location. This should be formatted as a string to preserve leading zeros and support various international formats."
+              },
+              "country": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Extract the country where the leased property is located. If not explicitly stated, this may be null. Examples include \"United States\", \"USA\", or \"Canada\"."
+              }
+            },
+            "required": [
+              "full_address",
+              "street_address",
+              "city",
+              "state",
+              "zip_code",
+              "country"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The \"property_location\" field must contain an object that specifies the geographic location of the leased property. This includes the complete address, street address, city, state, ZIP code, and country. All properties are required to provide comprehensive location information for the property."
+      },
       "lease_details": {
         "anyOf": [
           {
@@ -344,6 +431,7 @@
     "required": [
       "landlord",
       "tenant",
+      "property_location",
       "lease_details",
       "financial_terms",
       "risk_and_options"

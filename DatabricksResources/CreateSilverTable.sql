@@ -21,6 +21,14 @@ CREATE TABLE silver_leases (
     base_rent_psf DOUBLE,
     annual_escalation_pct DOUBLE,
     
+    -- Property Location Fields
+    property_address STRING COMMENT 'Full property address',
+    property_street_address STRING COMMENT 'Street address of the property',
+    property_city STRING COMMENT 'City where property is located',
+    property_state STRING COMMENT 'State where property is located',
+    property_zip_code STRING COMMENT 'ZIP code of the property',
+    property_country STRING COMMENT 'Country where property is located',
+    
     -- Calculated/Enriched Fields
     estimated_annual_rent DOUBLE COMMENT 'Calculated: square_footage * base_rent_psf',
     next_escalation_date DATE COMMENT 'Next rent escalation date',
@@ -31,6 +39,7 @@ CREATE TABLE silver_leases (
     verified_by STRING COMMENT 'User who verified the record',
     verified_at TIMESTAMP COMMENT 'When the record was verified',
     raw_document_path STRING COMMENT 'Path to source PDF in Unity Catalog Volumes',
+    uploaded_at TIMESTAMP COMMENT 'When the document was originally uploaded',
     
     -- Metadata
     updated_at TIMESTAMP COMMENT 'Last update timestamp'

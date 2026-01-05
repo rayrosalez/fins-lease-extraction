@@ -9,8 +9,8 @@ echo "=========================================="
 echo ""
 
 # Check if we're in the right directory
-if [ ! -f "generate_synthetic_leases.py" ]; then
-    echo "❌ Error: generate_synthetic_leases.py not found"
+if [ ! -f "generate_and_promote.py" ]; then
+    echo "❌ Error: generate_and_promote.py not found"
     echo "Please run this script from the DataGeneration directory"
     exit 1
 fi
@@ -42,21 +42,28 @@ echo "=========================================="
 echo ""
 echo "Next steps:"
 echo "1. Ensure your .env file has DATABRICKS_HOST and DATABRICKS_TOKEN"
-echo "2. Update WAREHOUSE_ID in generate_synthetic_leases.py (line 22)"
-echo "3. Run: python3 generate_synthetic_leases.py"
+echo "2. Update WAREHOUSE_ID in the scripts (if needed)"
+echo "3. Run: python3 generate_and_promote.py"
+echo ""
+echo "This will generate data AND promote it to silver so it appears in the frontend!"
 echo ""
 echo "Or run it now? (y/n)"
 read -r response
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo ""
-    echo "Starting data generation..."
+    echo "How many leases to generate? (recommended 50-200, default 100):"
+    read -r num_leases
+    num_leases=${num_leases:-100}
+    
     echo ""
-    python3 generate_synthetic_leases.py
+    echo "Starting complete data generation pipeline..."
+    echo ""
+    python3 generate_and_promote.py $num_leases
 else
     echo ""
     echo "When you're ready, run:"
-    echo "  python3 generate_synthetic_leases.py"
+    echo "  python3 generate_and_promote.py 100"
     echo ""
 fi
 
