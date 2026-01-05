@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { 
   FiHome, FiUser, FiBriefcase, FiMapPin, FiFileText,
   FiCalendar, FiClock, FiMaximize, FiDollarSign, FiTrendingUp,
-  FiBell, FiEdit3, FiCheckCircle, FiCpu, FiBarChart2
+  FiBell, FiEdit3, FiCheckCircle, FiCpu, FiBarChart2, FiZap
 } from 'react-icons/fi';
 import './ValidationForm.css';
+
+const API_BASE_URL = 'http://localhost:5001/api';
 
 const ValidationForm = ({ record, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -34,6 +36,8 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
   });
 
   const [errors, setErrors] = useState({});
+  const [enrichmentStatus, setEnrichmentStatus] = useState('idle'); // idle, enriching, enriched, error
+  const [enrichmentData, setEnrichmentData] = useState(null);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -57,6 +61,79 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
   const handleSubmit = () => {
     if (validateForm()) {
       onSubmit(formData);
+    }
+  };
+
+  const handleEnrichment = async () => {
+    if (!formData.landlord_name && !formData.tenant_name) {
+      setErrors({ ...errors, enrichment: 'Need at least landlord or tenant name to enrich' });
+      return;
+    }
+
+    setEnrichmentStatus('enriching');
+    
+    try {
+      // Enrich using the record's extraction_id if available, otherwise enrich individually
+      if (record.extraction_id) {
+        const response = await fetch(`${API_BASE_URL}/enrich/record/${record.extraction_id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          setEnrichmentData(data.results);
+          setEnrichmentStatus('enriched');
+        } else {
+          throw new Error(data.error || 'Enrichment failed');
+        }
+      } else {
+        // Enrich landlord and tenant separately
+        const results = { landlord: null, tenant: null, errors: [] };
+        
+        if (formData.landlord_name) {
+          const landlordRes = await fetch(`${API_BASE_URL}/enrich/landlord`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              landlord_name: formData.landlord_name,
+              landlord_address: formData.landlord_address
+            })
+          });
+          const landlordData = await landlordRes.json();
+          if (landlordRes.ok) {
+            results.landlord = landlordData;
+          } else {
+            results.errors.push(landlordData.error);
+          }
+        }
+        
+        if (formData.tenant_name) {
+          const tenantRes = await fetch(`${API_BASE_URL}/enrich/tenant`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tenant_name: formData.tenant_name,
+              tenant_address: formData.tenant_address,
+              industry_sector: formData.industry_sector
+            })
+          });
+          const tenantData = await tenantRes.json();
+          if (tenantRes.ok) {
+            results.tenant = tenantData;
+          } else {
+            results.errors.push(tenantData.error);
+          }
+        }
+        
+        setEnrichmentData(results);
+        setEnrichmentStatus(results.landlord || results.tenant ? 'enriched' : 'error');
+      }
+    } catch (err) {
+      console.error('Enrichment error:', err);
+      setEnrichmentStatus('error');
+      setErrors({ ...errors, enrichment: err.message });
     }
   };
 
@@ -138,6 +215,82 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
         })}
       </div>
 
+      {/* AI Enrichment Section */}
+      <motion.div 
+        className="enrichment-section"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="enrichment-header">
+          <FiZap className="enrichment-icon" size={24} />
+          <div className="enrichment-title-group">
+            <h3 className="enrichment-title">AI Enrichment</h3>
+            <p className="enrichment-description">
+              Use Claude AI to find financial and company information about the landlord and tenant
+            </p>
+          </div>
+        </div>
+        
+        {enrichmentStatus === 'idle' && (
+          <button 
+            className="enrich-button"
+            onClick={handleEnrichment}
+            disabled={!formData.landlord_name && !formData.tenant_name}
+          >
+            <FiZap size={20} />
+            <span>Enrich with Claude AI</span>
+          </button>
+        )}
+        
+        {enrichmentStatus === 'enriching' && (
+          <div className="enrichment-loading">
+            <div className="enrichment-spinner"></div>
+            <span>Searching web for financial data...</span>
+          </div>
+        )}
+        
+        {enrichmentStatus === 'enriched' && enrichmentData && (
+          <div className="enrichment-results">
+            <div className="enrichment-success">
+              <FiCheckCircle size={20} color="#10B981" />
+              <span>Enrichment complete!</span>
+            </div>
+            
+            {enrichmentData.landlord && (
+              <div className="enrichment-card">
+                <h4><FiHome size={16} /> Landlord: {formData.landlord_name}</h4>
+                <p className="enrichment-status">Financial profile created</p>
+              </div>
+            )}
+            
+            {enrichmentData.tenant && (
+              <div className="enrichment-card">
+                <h4><FiUser size={16} /> Tenant: {formData.tenant_name}</h4>
+                <p className="enrichment-status">Financial profile created</p>
+              </div>
+            )}
+            
+            {enrichmentData.errors && enrichmentData.errors.length > 0 && (
+              <div className="enrichment-warnings">
+                {enrichmentData.errors.map((err, i) => (
+                  <p key={i} className="enrichment-warning">⚠️ {err}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {enrichmentStatus === 'error' && (
+          <div className="enrichment-error">
+            <span>❌ Enrichment failed. You can still validate manually.</span>
+            <button className="retry-enrich-button" onClick={handleEnrichment}>
+              Retry
+            </button>
+          </div>
+        )}
+      </motion.div>
+
       <div className="validation-actions">
         <button className="cancel-button" onClick={onCancel}>
           Cancel
@@ -159,6 +312,12 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
             {Object.values(formData).filter(v => v).length} / {fields.length} fields extracted
           </span>
         </div>
+        {enrichmentStatus === 'enriched' && (
+          <div className="info-item">
+            <FiZap className="info-icon" size={20} color="#10B981" />
+            <span className="info-text">AI Enriched</span>
+          </div>
+        )}
       </div>
     </motion.div>
   );

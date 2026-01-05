@@ -1,0 +1,190 @@
+{
+  "name": "MCP Enrichment Agent",
+  "description": "Agent that uses MCP server to search the web and enrich landlord/tenant financial information",
+  "mcp_server_url": "https://fe-vm-industry-solutions-buildathon.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction",
+  "landlord_enrichment_schema": {
+    "type": "object",
+    "properties": {
+      "company_type": {
+        "type": "string",
+        "enum": ["REIT", "Private", "Public", "Government", "Non-profit"],
+        "description": "Type of company/organization"
+      },
+      "stock_ticker": {
+        "type": ["string", "null"],
+        "description": "Stock ticker symbol if publicly traded (e.g., 'BXP', 'SPG')"
+      },
+      "market_cap": {
+        "type": ["number", "null"],
+        "description": "Market capitalization in USD"
+      },
+      "total_assets": {
+        "type": ["number", "null"],
+        "description": "Total assets under management in USD"
+      },
+      "credit_rating": {
+        "type": ["string", "null"],
+        "description": "Credit rating (e.g., 'AAA', 'BBB+', 'A-')"
+      },
+      "credit_rating_agency": {
+        "type": ["string", "null"],
+        "enum": ["S&P", "Moody's", "Fitch", null],
+        "description": "Credit rating agency"
+      },
+      "annual_revenue": {
+        "type": ["number", "null"],
+        "description": "Annual revenue in USD"
+      },
+      "net_operating_income": {
+        "type": ["number", "null"],
+        "description": "Net Operating Income (NOI) in USD"
+      },
+      "debt_to_equity_ratio": {
+        "type": ["number", "null"],
+        "description": "Debt to equity ratio"
+      },
+      "total_properties": {
+        "type": ["integer", "null"],
+        "description": "Total number of properties in portfolio"
+      },
+      "total_square_footage": {
+        "type": ["number", "null"],
+        "description": "Total square footage across all properties"
+      },
+      "primary_property_types": {
+        "type": ["string", "null"],
+        "description": "Primary property types (e.g., 'Office, Retail, Industrial')"
+      },
+      "geographic_focus": {
+        "type": ["string", "null"],
+        "description": "Primary geographic markets"
+      },
+      "financial_health_score": {
+        "type": ["number", "null"],
+        "minimum": 1,
+        "maximum": 10,
+        "description": "Computed financial health score from 1 (poor) to 10 (excellent)"
+      },
+      "bankruptcy_risk": {
+        "type": ["string", "null"],
+        "enum": ["LOW", "MEDIUM", "HIGH", null],
+        "description": "Assessed bankruptcy risk level"
+      },
+      "recent_news_sentiment": {
+        "type": ["string", "null"],
+        "enum": ["POSITIVE", "NEUTRAL", "NEGATIVE", null],
+        "description": "Sentiment from recent news articles"
+      },
+      "source_urls": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "URLs of sources used for enrichment"
+      }
+    },
+    "required": ["company_type", "financial_health_score", "bankruptcy_risk"]
+  },
+  "tenant_enrichment_schema": {
+    "type": "object",
+    "properties": {
+      "company_type": {
+        "type": "string",
+        "enum": ["Public", "Private", "Subsidiary", "Non-profit", "Government"],
+        "description": "Type of company"
+      },
+      "parent_company": {
+        "type": ["string", "null"],
+        "description": "Parent company name if subsidiary"
+      },
+      "stock_ticker": {
+        "type": ["string", "null"],
+        "description": "Stock ticker symbol if publicly traded"
+      },
+      "founding_year": {
+        "type": ["integer", "null"],
+        "description": "Year the company was founded"
+      },
+      "employee_count": {
+        "type": ["integer", "null"],
+        "description": "Approximate number of employees"
+      },
+      "headquarters_location": {
+        "type": ["string", "null"],
+        "description": "Headquarters city and state"
+      },
+      "market_cap": {
+        "type": ["number", "null"],
+        "description": "Market capitalization in USD if public"
+      },
+      "annual_revenue": {
+        "type": ["number", "null"],
+        "description": "Annual revenue in USD"
+      },
+      "net_income": {
+        "type": ["number", "null"],
+        "description": "Net income in USD"
+      },
+      "revenue_growth_pct": {
+        "type": ["number", "null"],
+        "description": "Year-over-year revenue growth percentage"
+      },
+      "profit_margin_pct": {
+        "type": ["number", "null"],
+        "description": "Profit margin percentage"
+      },
+      "credit_rating": {
+        "type": ["string", "null"],
+        "description": "Credit rating"
+      },
+      "credit_rating_agency": {
+        "type": ["string", "null"],
+        "description": "Credit rating agency"
+      },
+      "payment_history_score": {
+        "type": ["number", "null"],
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Payment history score (1-100)"
+      },
+      "financial_health_score": {
+        "type": ["number", "null"],
+        "minimum": 1,
+        "maximum": 10,
+        "description": "Computed financial health score (1-10)"
+      },
+      "bankruptcy_risk": {
+        "type": ["string", "null"],
+        "enum": ["LOW", "MEDIUM", "HIGH", null],
+        "description": "Bankruptcy risk assessment"
+      },
+      "industry_risk": {
+        "type": ["string", "null"],
+        "enum": ["LOW", "MEDIUM", "HIGH", null],
+        "description": "Industry sector risk level"
+      },
+      "recent_news_sentiment": {
+        "type": ["string", "null"],
+        "enum": ["POSITIVE", "NEUTRAL", "NEGATIVE", null],
+        "description": "Recent news sentiment"
+      },
+      "litigation_flag": {
+        "type": ["boolean", "null"],
+        "description": "True if significant ongoing litigation found"
+      },
+      "locations_count": {
+        "type": ["integer", "null"],
+        "description": "Number of business locations"
+      },
+      "years_in_business": {
+        "type": ["integer", "null"],
+        "description": "Years the company has been operating"
+      },
+      "source_urls": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "URLs of sources used for enrichment"
+      }
+    },
+    "required": ["company_type", "financial_health_score", "bankruptcy_risk"]
+  }
+}
+
