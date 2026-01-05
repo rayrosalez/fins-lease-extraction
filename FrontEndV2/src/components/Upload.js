@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiUploadCloud, FiFile, FiCheck, FiX, FiClock, FiEdit2, FiSave, FiRefreshCw } from 'react-icons/fi';
+import { FiUploadCloud, FiFile, FiCheck, FiX, FiClock, FiEdit2, FiSave, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import ProcessingAnimation from './ProcessingAnimation';
 import ValidationForm from './ValidationForm';
 import './Upload.css';
@@ -302,43 +302,91 @@ const Upload = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          records: recordsToValidate
-        })
+        body: JSON.stringify({ records: recordsToValidate })
       });
 
       const result = await response.json();
 
-      if (response.ok) {
-        setValidationMessage({ 
-          type: 'success', 
-          text: `Successfully validated ${result.validated_count} record(s)${result.failed_count > 0 ? `, ${result.failed_count} failed` : ''}`
-        });
-        
-        // Remove validated records from the list
-        setNewRecords(prev => 
-          prev.filter(r => !selectedRecords.includes(r.extraction_id))
-        );
-        
-        // Remove validated records from original records tracking
-        setOriginalRecords(prev => {
-          const updated = { ...prev };
-          selectedRecords.forEach(id => {
-            delete updated[id];
-          });
-          return updated;
-        });
-        
-        setSelectedRecords([]);
-        
-        // Clear message after 3 seconds
-        setTimeout(() => setValidationMessage(null), 3000);
-      } else {
-        throw new Error(result.error || 'Validation failed');
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to validate records');
       }
+
+      setValidationMessage({ 
+        type: 'success', 
+        text: `Successfully validated ${selectedRecords.length} record(s)!` 
+      });
+      
+      // Clear selections and refresh
+      setSelectedRecords([]);
+      
+      // Refresh after a short delay to show success message
+      setTimeout(() => {
+        fetchNewRecords();
+        setValidationMessage(null);
+      }, 2000);
+
     } catch (err) {
       console.error('Validation error:', err);
-      setValidationMessage({ type: 'error', text: err.message || 'Failed to validate records' });
+      setValidationMessage({ 
+        type: 'error', 
+        text: `Failed to validate: ${err.message}` 
+      });
+    } finally {
+      setValidationLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedRecords.length === 0) {
+      setValidationMessage({ type: 'error', text: 'Please select at least one record to delete' });
+      return;
+    }
+
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${selectedRecords.length} record(s)? This action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    setValidationLoading(true);
+    setValidationMessage(null);
+
+    try {
+      const response = await fetch('http://localhost:5001/api/records/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ extraction_ids: selectedRecords })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete records');
+      }
+
+      setValidationMessage({ 
+        type: 'success', 
+        text: `Successfully deleted ${selectedRecords.length} record(s)!` 
+      });
+      
+      // Clear selections and refresh
+      setSelectedRecords([]);
+      
+      // Refresh after a short delay to show success message
+      setTimeout(() => {
+        fetchNewRecords();
+        setValidationMessage(null);
+      }, 2000);
+
+    } catch (err) {
+      console.error('Delete error:', err);
+      setValidationMessage({ 
+        type: 'error', 
+        text: `Failed to delete: ${err.message}` 
+      });
     } finally {
       setValidationLoading(false);
     }
@@ -543,6 +591,14 @@ const Upload = () => {
                   onClick={handleSelectAll}
                 >
                   {selectedRecords.length === newRecords.length ? 'Deselect All' : 'Select All'}
+                </button>
+                <button 
+                  className="delete-btn"
+                  onClick={handleDeleteSelected}
+                  disabled={selectedRecords.length === 0 || validationLoading}
+                >
+                  <FiTrash2 size={16} />
+                  {validationLoading ? 'Deleting...' : `Delete Selected (${selectedRecords.length})`}
                 </button>
                 <button 
                   className="validate-btn"

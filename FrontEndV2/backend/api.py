@@ -1052,6 +1052,40 @@ def chat_query():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/records/delete', methods=['POST'])
+def delete_records():
+    """Mark records as DELETED by changing validation_status"""
+    try:
+        data = request.json
+        extraction_ids = data.get('extraction_ids', [])
+        
+        if not extraction_ids:
+            return jsonify({'error': 'No extraction IDs provided'}), 400
+        
+        # Update validation_status to DELETED for each record
+        placeholders = ', '.join([f"'{id}'" for id in extraction_ids])
+        query = f"""
+        UPDATE {CATALOG}.{SCHEMA}.bronze_leases
+        SET validation_status = 'DELETED'
+        WHERE extraction_id IN ({placeholders})
+        """
+        
+        result, error = execute_query(query)
+        
+        if error:
+            return jsonify({'error': error}), 500
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': len(extraction_ids),
+            'message': f'Successfully marked {len(extraction_ids)} record(s) as deleted'
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in delete_records: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/portfolio/risk-assessment', methods=['GET'])
 def get_risk_assessment():
     """Get comprehensive risk assessment data from gold layer"""
