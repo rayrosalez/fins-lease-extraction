@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiBarChart2, 
-  FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers
+  FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers, FiSearch
 } from 'react-icons/fi';
 import './Hero.css';
 
@@ -31,6 +31,12 @@ const Hero = () => {
       title: 'Human Validation',
       description: 'Review, correct, and add context',
       color: '#6B6B6B'
+    },
+    {
+      icon: FiSearch,
+      title: 'AI Enrichment',
+      description: 'Claude AI enriches financial profiles',
+      color: '#00A67E'
     }
   ];
 
@@ -125,7 +131,7 @@ const Hero = () => {
       >
         <h2 className="section-title-new">The Databricks-Powered Pipeline</h2>
         <p className="section-subtitle">
-          From raw documents to intelligent insights in four seamless stages
+          From raw documents to intelligent insights in five seamless stages
         </p>
 
         <div className="pipeline-flow">

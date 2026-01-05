@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiClock, FiTarget, FiShield } from 'react-icons/fi';
+import { FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiClock, FiTarget, FiShield, FiTrendingUp } from 'react-icons/fi';
 import './ProcessingAnimation.css';
 
 const ProcessingAnimation = ({ stage }) => {
@@ -55,6 +55,13 @@ const ProcessingAnimation = ({ stage }) => {
       description: 'Structuring data and preparing for your review',
       icon: FiCheckCircle,
       color: '#6B6B6B'
+    },
+    {
+      id: 5,
+      title: 'AI Enrichment',
+      description: 'Claude AI enriching landlord & tenant financial profiles',
+      icon: FiTrendingUp,
+      color: '#00A67E'
     }
   ];
 
