@@ -79,21 +79,21 @@ def health_check():
 
 @app.route('/api/portfolio/kpis', methods=['GET'])
 def get_portfolio_kpis():
-    """Get overall portfolio KPIs"""
+    """Get overall portfolio KPIs from silver layer (verified leases only)"""
     try:
         query = f"""
         SELECT 
             COUNT(*) as total_leases,
-            COUNT(DISTINCT COALESCE(landlord_name, 'Unknown')) as total_properties,
+            COUNT(DISTINCT COALESCE(property_id, 'Unknown')) as total_properties,
             COUNT(DISTINCT tenant_name) as total_tenants,
             COUNT(DISTINCT COALESCE(industry_sector, 'Unknown')) as markets_count,
             AVG(base_rent_psf) as avg_rent_psf,
-            AVG(GREATEST(DATEDIFF(expiration_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt,
+            AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt,
             0 as total_exit_risk,
             0 as total_rofr,
             5.0 as avg_risk_score,
-            SUM(CASE WHEN DATEDIFF(expiration_date, CURRENT_DATE()) <= 365 AND DATEDIFF(expiration_date, CURRENT_DATE()) >= 0 THEN 1 ELSE 0 END) as expiring_12_months
-        FROM {CATALOG}.{SCHEMA}.bronze_leases
+            SUM(CASE WHEN DATEDIFF(lease_end_date, CURRENT_DATE()) <= 365 AND DATEDIFF(lease_end_date, CURRENT_DATE()) >= 0 THEN 1 ELSE 0 END) as expiring_12_months
+        FROM {CATALOG}.{SCHEMA}.silver_leases
         WHERE tenant_name IS NOT NULL
         """
         
@@ -126,26 +126,26 @@ def get_portfolio_kpis():
 
 @app.route('/api/portfolio/leases', methods=['GET'])
 def get_all_leases():
-    """Get all lease details"""
+    """Get all lease details from silver layer (verified leases only)"""
     query = f"""
     SELECT 
-        extraction_id,
-        COALESCE(landlord_name, 'Unknown Property') as property_name,
+        lease_id,
+        COALESCE(property_id, 'Unknown Property') as property_name,
         COALESCE(industry_sector, 'Unknown') as market,
         COALESCE(lease_type, 'Unknown') as asset_type,
         tenant_name,
         industry_sector,
-        commencement_date,
-        expiration_date,
+        lease_start_date,
+        lease_end_date,
         base_rent_psf,
-        rentable_square_feet,
-        annual_base_rent,
+        square_footage,
+        estimated_annual_rent,
         annual_escalation_pct,
         validation_status,
-        DATEDIFF(expiration_date, CURRENT_DATE()) / 365.25 as years_remaining
-    FROM {CATALOG}.{SCHEMA}.bronze_leases
+        DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25 as years_remaining
+    FROM {CATALOG}.{SCHEMA}.silver_leases
     WHERE tenant_name IS NOT NULL
-    ORDER BY expiration_date ASC
+    ORDER BY lease_end_date ASC
     """
     
     data, error = execute_query(query)
@@ -175,17 +175,17 @@ def get_all_leases():
 
 @app.route('/api/portfolio/recent', methods=['GET'])
 def get_recent_extractions():
-    """Get recent extractions"""
+    """Get recent extractions from silver layer"""
     query = f"""
     SELECT 
-        extraction_id,
+        lease_id,
         CONCAT(tenant_name, '_lease.pdf') as filename,
         validation_status,
         base_rent_psf,
-        extracted_at
-    FROM {CATALOG}.{SCHEMA}.bronze_leases
+        verified_at
+    FROM {CATALOG}.{SCHEMA}.silver_leases
     WHERE tenant_name IS NOT NULL
-    ORDER BY extracted_at DESC
+    ORDER BY verified_at DESC
     LIMIT 10
     """
     
@@ -214,15 +214,15 @@ def get_recent_extractions():
 
 @app.route('/api/portfolio/market-summary', methods=['GET'])
 def get_market_summary():
-    """Get portfolio health by market"""
+    """Get portfolio health by market from silver layer"""
     query = f"""
     SELECT 
         COALESCE(industry_sector, 'Unknown') as market,
         COUNT(*) as lease_count,
         ROUND(AVG(base_rent_psf), 2) as avg_rent_psf,
-        ROUND(AVG(GREATEST(DATEDIFF(expiration_date, CURRENT_DATE()), 0) / 365.25), 2) as walt_years
-    FROM {CATALOG}.{SCHEMA}.bronze_leases
-    WHERE expiration_date IS NOT NULL
+        ROUND(AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25), 2) as walt_years
+    FROM {CATALOG}.{SCHEMA}.silver_leases
+    WHERE lease_end_date IS NOT NULL
     GROUP BY industry_sector
     ORDER BY lease_count DESC
     """
@@ -244,16 +244,16 @@ def get_market_summary():
 
 @app.route('/api/portfolio/location-summary', methods=['GET'])
 def get_location_summary():
-    """Get lease counts and data by location (city/state)"""
+    """Get lease counts and data by location (city/state) from silver layer"""
     query = f"""
     SELECT 
         COALESCE(property_city, 'Unknown') as city,
         COALESCE(property_state, 'Unknown') as state,
         COUNT(*) as lease_count,
-        SUM(rentable_square_feet) as total_sqft,
+        SUM(square_footage) as total_sqft,
         AVG(base_rent_psf) as avg_rent_psf,
-        SUM(annual_base_rent) as total_annual_rent
-    FROM {CATALOG}.{SCHEMA}.bronze_leases
+        SUM(estimated_annual_rent) as total_annual_rent
+    FROM {CATALOG}.{SCHEMA}.silver_leases
     WHERE property_city IS NOT NULL
     GROUP BY property_city, property_state
     ORDER BY lease_count DESC
@@ -605,6 +605,277 @@ def validate_record():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/records/new', methods=['GET'])
+def get_new_records():
+    """Get all records with validation_status = 'NEW'"""
+    try:
+        query = f"""
+        SELECT 
+            extraction_id,
+            landlord_name,
+            landlord_address,
+            tenant_name,
+            tenant_address,
+            industry_sector,
+            suite_number,
+            lease_type,
+            commencement_date,
+            expiration_date,
+            term_months,
+            rentable_square_feet,
+            annual_base_rent,
+            base_rent_psf,
+            annual_escalation_pct,
+            renewal_notice_days,
+            guarantor,
+            property_address,
+            property_street_address,
+            property_city,
+            property_state,
+            property_zip_code,
+            property_country,
+            validation_status,
+            uploaded_at,
+            extracted_at
+        FROM {CATALOG}.{SCHEMA}.bronze_leases
+        WHERE validation_status = 'NEW'
+        ORDER BY extracted_at DESC
+        """
+        
+        data, error = execute_query(query)
+        if error:
+            print(f"ERROR in get_new_records: {error}")
+            return jsonify({'error': error}), 500
+        
+        records = []
+        for row in data:
+            records.append({
+                'extraction_id': row[0],
+                'landlord_name': row[1],
+                'landlord_address': row[2],
+                'tenant_name': row[3],
+                'tenant_address': row[4],
+                'industry_sector': row[5],
+                'suite_number': row[6],
+                'lease_type': row[7],
+                'commencement_date': row[8],
+                'expiration_date': row[9],
+                'term_months': row[10],
+                'rentable_square_feet': row[11],
+                'annual_base_rent': row[12],
+                'base_rent_psf': row[13],
+                'annual_escalation_pct': row[14],
+                'renewal_notice_days': row[15],
+                'guarantor': row[16],
+                'property_address': row[17],
+                'property_street_address': row[18],
+                'property_city': row[19],
+                'property_state': row[20],
+                'property_zip_code': row[21],
+                'property_country': row[22],
+                'validation_status': row[23],
+                'uploaded_at': row[24],
+                'extracted_at': row[25]
+            })
+        
+        return jsonify(records)
+        
+    except Exception as e:
+        error_msg = f"Exception in get_new_records: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/records/validate-multiple', methods=['POST'])
+def validate_multiple_records():
+    """Validate multiple records and promote them to silver layer"""
+    try:
+        data = request.json
+        records = data.get('records', [])
+        
+        if not records or len(records) == 0:
+            return jsonify({'error': 'No records provided'}), 400
+        
+        print(f"Validating {len(records)} records")
+        
+        success_count = 0
+        failed_records = []
+        
+        for record in records:
+            extraction_id = record.get('extraction_id')
+            updates = record.get('updates', {})
+            
+            try:
+                # Build update query for bronze layer
+                set_clauses = []
+                for field, value in updates.items():
+                    if value is not None and value != '':
+                        if isinstance(value, str):
+                            escaped_value = value.replace("'", "''")
+                            set_clauses.append(f"{field} = '{escaped_value}'")
+                        else:
+                            set_clauses.append(f"{field} = {value}")
+                
+                # Always mark as verified
+                set_clauses.append("validation_status = 'VERIFIED'")
+                
+                # Update bronze layer
+                if set_clauses:
+                    update_query = f"""
+                    UPDATE {CATALOG}.{SCHEMA}.bronze_leases
+                    SET {', '.join(set_clauses)}
+                    WHERE extraction_id = {extraction_id}
+                    """
+                    
+                    _, update_error = execute_query(update_query)
+                    
+                    if update_error:
+                        print(f"ERROR updating bronze layer for {extraction_id}: {update_error}")
+                        failed_records.append({'extraction_id': extraction_id, 'error': update_error})
+                        continue
+                else:
+                    # Just mark as verified
+                    update_query = f"""
+                    UPDATE {CATALOG}.{SCHEMA}.bronze_leases
+                    SET validation_status = 'VERIFIED'
+                    WHERE extraction_id = {extraction_id}
+                    """
+                    _, update_error = execute_query(update_query)
+                    if update_error:
+                        print(f"ERROR updating bronze layer for {extraction_id}: {update_error}")
+                        failed_records.append({'extraction_id': extraction_id, 'error': update_error})
+                        continue
+                
+                # Get the updated record from bronze
+                select_query = f"""
+                SELECT 
+                    landlord_name,
+                    tenant_name,
+                    industry_sector,
+                    suite_number,
+                    lease_type,
+                    commencement_date,
+                    expiration_date,
+                    term_months,
+                    rentable_square_feet,
+                    annual_base_rent,
+                    base_rent_psf,
+                    annual_escalation_pct,
+                    renewal_notice_days,
+                    guarantor,
+                    property_address,
+                    property_street_address,
+                    property_city,
+                    property_state,
+                    property_zip_code,
+                    property_country,
+                    uploaded_at
+                FROM {CATALOG}.{SCHEMA}.bronze_leases
+                WHERE extraction_id = {extraction_id}
+                """
+                
+                bronze_data, select_error = execute_query(select_query)
+                
+                if select_error or not bronze_data or len(bronze_data) == 0:
+                    print(f"ERROR retrieving updated bronze record for {extraction_id}: {select_error}")
+                    failed_records.append({'extraction_id': extraction_id, 'error': 'Failed to retrieve updated record'})
+                    continue
+                
+                row = bronze_data[0]
+                
+                # Create unique IDs for silver layer
+                landlord = row[0] or 'Unknown'
+                tenant = row[1] or 'Unknown'
+                suite = row[3] or 'Unknown'
+                lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "")
+                property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "")
+                
+                # Calculate estimated annual rent
+                square_footage = float(row[8]) if row[8] else 0
+                base_rent_psf = float(row[10]) if row[10] else 0
+                estimated_annual_rent = square_footage * base_rent_psf if square_footage and base_rent_psf else (float(row[9]) if row[9] else 0)
+                
+                # Get location fields
+                property_address = row[14] if len(row) > 14 else None
+                property_street_address = row[15] if len(row) > 15 else None
+                property_city = row[16] if len(row) > 16 else None
+                property_state = row[17] if len(row) > 17 else None
+                property_zip_code = row[18] if len(row) > 18 else None
+                property_country = row[19] if len(row) > 19 else None
+                uploaded_at = row[20] if len(row) > 20 else None
+                
+                # Prepare values for silver insert
+                def sql_safe_value(val):
+                    if val is None or val == '':
+                        return 'NULL'
+                    if isinstance(val, str):
+                        escaped = val.replace("'", "''")
+                        return f"'{escaped}'"
+                    return str(val)
+                
+                # Insert or merge into silver layer
+                silver_insert = f"""
+                MERGE INTO {CATALOG}.{SCHEMA}.silver_leases AS target
+                USING (
+                    SELECT 
+                        {sql_safe_value(lease_id)} as lease_id,
+                        {sql_safe_value(property_id)} as property_id,
+                        {sql_safe_value(row[1])} as tenant_name,
+                        {sql_safe_value(row[2])} as industry_sector,
+                        {sql_safe_value(row[3])} as suite_id,
+                        {row[8] if row[8] else 'NULL'} as square_footage,
+                        {sql_safe_value(row[4])} as lease_type,
+                        {sql_safe_value(row[5])} as lease_start_date,
+                        {sql_safe_value(row[6])} as lease_end_date,
+                        {row[10] if row[10] else 'NULL'} as base_rent_psf,
+                        {row[11] if row[11] else 'NULL'} as annual_escalation_pct,
+                        {sql_safe_value(property_address)} as property_address,
+                        {sql_safe_value(property_street_address)} as property_street_address,
+                        {sql_safe_value(property_city)} as property_city,
+                        {sql_safe_value(property_state)} as property_state,
+                        {sql_safe_value(property_zip_code)} as property_zip_code,
+                        {sql_safe_value(property_country)} as property_country,
+                        {estimated_annual_rent} as estimated_annual_rent,
+                        NULL as next_escalation_date,
+                        'AI_HUMAN_VERIFIED' as enhancement_source,
+                        'VERIFIED' as validation_status,
+                        'web_user' as verified_by,
+                        CURRENT_TIMESTAMP() as verified_at,
+                        NULL as raw_document_path,
+                        {sql_safe_value(uploaded_at)} as uploaded_at,
+                        CURRENT_TIMESTAMP() as updated_at
+                ) AS source
+                ON target.lease_id = source.lease_id
+                WHEN MATCHED THEN UPDATE SET *
+                WHEN NOT MATCHED THEN INSERT *
+                """
+                
+                _, silver_error = execute_query(silver_insert)
+                
+                if silver_error:
+                    print(f"ERROR promoting to silver layer for {extraction_id}: {silver_error}")
+                    failed_records.append({'extraction_id': extraction_id, 'error': f'Silver promotion failed: {silver_error}'})
+                    continue
+                
+                success_count += 1
+                print(f"Successfully validated and promoted record {extraction_id}")
+                
+            except Exception as e:
+                error_msg = f"Exception processing record {extraction_id}: {str(e)}"
+                print(error_msg)
+                failed_records.append({'extraction_id': extraction_id, 'error': str(e)})
+        
+        return jsonify({
+            'success': True,
+            'validated_count': success_count,
+            'failed_count': len(failed_records),
+            'failed_records': failed_records
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in validate_multiple_records: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/chat/query', methods=['POST'])
 def chat_query():
     """Process natural language queries about lease data"""
@@ -626,11 +897,11 @@ def chat_query():
             sql = f"""
             SELECT 
                 COUNT(*) as total_leases,
-                SUM(annual_base_rent) as total_annual_rent,
+                SUM(estimated_annual_rent) as total_annual_rent,
                 AVG(base_rent_psf) as avg_rent_psf,
-                SUM(rentable_square_feet) as total_sqft
-            FROM {CATALOG}.{SCHEMA}.bronze_leases
-            WHERE annual_base_rent IS NOT NULL
+                SUM(square_footage) as total_sqft
+            FROM {CATALOG}.{SCHEMA}.silver_leases
+            WHERE estimated_annual_rent IS NOT NULL
             """
             data, error = execute_query(sql)
             if not error and data:
@@ -657,13 +928,13 @@ def chat_query():
             sql = f"""
             SELECT 
                 tenant_name,
-                expiration_date,
-                annual_base_rent,
-                DATEDIFF(expiration_date, CURRENT_DATE()) as days_until_expiration
-            FROM {CATALOG}.{SCHEMA}.bronze_leases
-            WHERE expiration_date IS NOT NULL
-                AND DATEDIFF(expiration_date, CURRENT_DATE()) BETWEEN 0 AND {months * 30}
-            ORDER BY expiration_date ASC
+                lease_end_date,
+                estimated_annual_rent,
+                DATEDIFF(lease_end_date, CURRENT_DATE()) as days_until_expiration
+            FROM {CATALOG}.{SCHEMA}.silver_leases
+            WHERE lease_end_date IS NOT NULL
+                AND DATEDIFF(lease_end_date, CURRENT_DATE()) BETWEEN 0 AND {months * 30}
+            ORDER BY lease_end_date ASC
             LIMIT 10
             """
             data, error = execute_query(sql)
@@ -687,12 +958,12 @@ def chat_query():
             sql = f"""
             SELECT 
                 tenant_name,
-                rentable_square_feet,
-                annual_base_rent,
+                square_footage,
+                estimated_annual_rent,
                 base_rent_psf
-            FROM {CATALOG}.{SCHEMA}.bronze_leases
-            WHERE rentable_square_feet IS NOT NULL
-            ORDER BY rentable_square_feet DESC
+            FROM {CATALOG}.{SCHEMA}.silver_leases
+            WHERE square_footage IS NOT NULL
+            ORDER BY square_footage DESC
             LIMIT 5
             """
             data, error = execute_query(sql)
@@ -716,8 +987,8 @@ def chat_query():
                 COALESCE(industry_sector, 'Unknown') as industry,
                 COUNT(*) as lease_count,
                 AVG(base_rent_psf) as avg_rent_psf,
-                AVG(annual_base_rent) as avg_annual_rent
-            FROM {CATALOG}.{SCHEMA}.bronze_leases
+                AVG(estimated_annual_rent) as avg_annual_rent
+            FROM {CATALOG}.{SCHEMA}.silver_leases
             WHERE base_rent_psf IS NOT NULL
             GROUP BY industry_sector
             ORDER BY avg_rent_psf DESC
@@ -741,11 +1012,11 @@ def chat_query():
             SELECT 
                 tenant_name,
                 industry_sector,
-                annual_base_rent,
-                expiration_date
-            FROM {CATALOG}.{SCHEMA}.bronze_leases
+                estimated_annual_rent,
+                lease_end_date
+            FROM {CATALOG}.{SCHEMA}.silver_leases
             WHERE tenant_name IS NOT NULL
-            ORDER BY annual_base_rent DESC
+            ORDER BY estimated_annual_rent DESC
             LIMIT 10
             """
             data, error = execute_query(sql)

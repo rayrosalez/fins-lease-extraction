@@ -2,7 +2,23 @@
 
 ## Overview
 
-This tool generates realistic synthetic lease data to populate your `bronze_leases` table for demonstration and testing purposes. The data is designed to showcase the dashboard at scale with meaningful visualizations.
+This tool generates realistic synthetic lease data and automatically promotes it from bronze to silver tables so it appears immediately in your frontend application. The data is designed to showcase the dashboard at scale with meaningful visualizations.
+
+## ⚡ Quick Start (Recommended)
+
+**Use the all-in-one script to generate data AND promote it to silver:**
+
+```bash
+python generate_and_promote.py
+```
+
+This script will:
+1. Generate synthetic lease data
+2. Insert into `bronze_leases` table
+3. Automatically promote VERIFIED records to `silver_leases` table
+4. Verify the data is ready for your frontend
+
+**Your data will immediately appear in the frontend application!**
 
 ## Features
 
@@ -68,7 +84,43 @@ DATABRICKS_TOKEN=your-databricks-token
 
 ## Usage
 
-### Basic Execution
+### 🚀 Recommended: All-in-One Script
+
+**For data that immediately appears in your frontend:**
+
+```bash
+python generate_and_promote.py
+```
+
+Or specify the number of leases directly:
+
+```bash
+python generate_and_promote.py 100
+```
+
+This handles the complete pipeline:
+- ✅ Generates synthetic leases
+- ✅ Inserts into bronze_leases
+- ✅ Promotes VERIFIED records to silver_leases
+- ✅ Verifies data is ready
+
+### Alternative: Manual Two-Step Process
+
+If you prefer more control:
+
+#### Step 1: Generate and Insert to Bronze
+
+```bash
+python generate_synthetic_leases.py
+```
+
+#### Step 2: Promote to Silver
+
+```bash
+python promote_to_silver.py
+```
+
+### Basic Execution (Original Script)
 
 ```bash
 python generate_synthetic_leases.py
@@ -430,7 +482,28 @@ A: Yes! Edit the `generate_company_name()` function to use specific names or pat
 A: Use `TRUNCATE TABLE` or `DELETE FROM ... WHERE validation_status = 'VERIFIED'` to selectively remove.
 
 **Q: Does it work with silver_leases table?**
-A: Currently only generates for bronze_leases. You can adapt the script for silver if needed.
+A: Yes! Use `generate_and_promote.py` to automatically insert into bronze AND promote to silver. The frontend reads from silver_leases, so this is the recommended approach.
+
+**Q: Why isn't my data appearing in the frontend?**
+A: The frontend reads from `silver_leases` table. Make sure to either:
+   1. Use `generate_and_promote.py` (recommended), OR
+   2. Run `promote_to_silver.py` after `generate_synthetic_leases.py`
+
+**Q: What's the difference between the scripts?**
+A: 
+- `generate_synthetic_leases.py` - Only inserts into bronze_leases
+- `promote_to_silver.py` - Only promotes bronze → silver
+- `generate_and_promote.py` - Does both in one step (recommended!)
+
+## Data Flow
+
+```
+generate_and_promote.py
+   ↓
+[Bronze Table] → VERIFIED records → [Silver Table] → Frontend App
+```
+
+The frontend application reads from the `silver_leases` table, so data must be promoted from bronze to silver to appear in the UI.
 
 ## Support
 

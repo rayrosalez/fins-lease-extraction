@@ -1,29 +1,46 @@
-# Data Generation Tool - Summary
+# Data Generation Tool - Quick Start
 
-## 📁 Files Created
+## 📁 Files
 
 ```
 DataGeneration/
 ├── README.md                          # Comprehensive documentation
 ├── requirements.txt                   # Python dependencies
 ├── setup.sh                          # Quick setup script (executable)
-├── generate_synthetic_leases.py      # Main data generator
+├── generate_and_promote.py           # ⭐ ALL-IN-ONE SCRIPT (RECOMMENDED)
+├── generate_synthetic_leases.py      # Bronze-only generator
+├── promote_to_silver.py              # Bronze → Silver promotion
 └── verify_data.py                    # Data verification tool
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Recommended)
 
-### Option 1: Automated Setup
+### ⚡ Fastest Way - Use All-in-One Script
+
+This generates data AND promotes it to silver so it appears in the frontend immediately:
+
+```bash
+cd DataGeneration
+python3 generate_and_promote.py 100
+```
+
+That's it! Your data will now appear in the frontend application.
+
+### Option 1: Automated Setup with Script
+
 ```bash
 cd DataGeneration
 ./setup.sh
 ```
 
+Follow the prompts to install dependencies and run the generator.
+
 ### Option 2: Manual Setup
+
 ```bash
 cd DataGeneration
 pip install -r requirements.txt
-python generate_synthetic_leases.py
+python3 generate_and_promote.py 100
 ```
 
 ## 📊 What Gets Generated
@@ -99,30 +116,49 @@ DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
 DATABRICKS_TOKEN=your-databricks-token
 ```
 
-## 📋 Execution Steps
+## 📋 Complete Execution Steps
+
+### Using All-in-One Script (Recommended)
 
 1. **Install dependencies:**
    ```bash
    pip install faker databricks-sdk python-dotenv
    ```
 
-2. **Update warehouse ID in script**
+2. **Ensure `.env` file exists** with Databricks credentials
 
-3. **Run generator:**
+3. **Run the complete pipeline:**
    ```bash
-   python generate_synthetic_leases.py
+   python3 generate_and_promote.py 100
    ```
 
-4. **Enter number of leases when prompted** (e.g., 100)
+4. **Open your frontend** at http://localhost:3000 - data will be there!
 
-5. **Wait for completion** (~10-20 seconds)
+### Using Manual Two-Step Process
 
-6. **Verify data:**
+If you prefer more control:
+
+1. **Generate and insert to bronze:**
    ```bash
-   python verify_data.py
+   python3 generate_synthetic_leases.py
    ```
 
-7. **Refresh dashboard** and view results!
+2. **Promote to silver:**
+   ```bash
+   python3 promote_to_silver.py
+   ```
+
+3. **Refresh dashboard** and view results!
+
+## 🔄 Data Flow
+
+```
+generate_and_promote.py
+   ↓
+[Bronze Table] → VERIFIED records → [Silver Table] → Frontend App
+```
+
+**Important:** The frontend reads from `silver_leases` table. Data must be promoted from bronze to silver to appear in the UI.
 
 ## ✅ Verification
 
@@ -197,11 +233,17 @@ Then run generator again.
 
 ### "Statement failed"
 - Ensure SQL Warehouse is running
-- Verify bronze_leases table exists
+- Verify bronze_leases and silver_leases tables exist
 - Check INSERT permissions
 
+### "Data not appearing in frontend"
+- Make sure you used `generate_and_promote.py` (recommended)
+- OR run `promote_to_silver.py` after generating data
+- Frontend reads from silver_leases, not bronze_leases
+- Check browser console for API errors
+
 ### "Timeout"
-- Reduce batch_size in script (line 17)
+- Reduce batch_size in script
 - Ensure warehouse isn't overloaded
 - Try during off-peak hours
 

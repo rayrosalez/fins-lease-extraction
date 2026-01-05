@@ -39,7 +39,7 @@ function App() {
               className={activeView === 'upload' ? 'nav-link active' : 'nav-link'}
               onClick={() => setActiveView('upload')}
             >
-              Upload
+              Upload & Validate
             </button>
           </div>
         </div>
