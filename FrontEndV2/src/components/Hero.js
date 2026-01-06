@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiBarChart2, 
-  FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers, FiSearch
+  FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers, FiSearch,
+  FiFileText, FiFile, FiImage, FiX
 } from 'react-icons/fi';
 import './Hero.css';
 
