@@ -2108,9 +2108,10 @@ def get_all_tenants():
 
 
 if __name__ == '__main__':
-    # Use PORT environment variable for Databricks Apps deployment
+    # Use DATABRICKS_APP_PORT or PORT environment variable for Databricks Apps deployment
     # Falls back to 5001 for local development
-    port = int(os.getenv('PORT', 5001))
+    port = int(os.getenv('DATABRICKS_APP_PORT', os.getenv('PORT', 5001)))
     debug = os.getenv('FLASK_DEBUG', '1') == '1'
+    print(f"Starting server on port {port}")
     app.run(debug=debug, host='0.0.0.0', port=port)
 
