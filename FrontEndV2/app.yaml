@@ -4,7 +4,7 @@
 command:
   - "/bin/bash"
   - "-c"
-  - "pip install -r requirements.txt && python backend/api.py"
+  - "pip install --user Flask Flask-Cors databricks-sdk python-dotenv requests werkzeug && python backend/api.py"
 
 # Environment variables for the application
 env:
