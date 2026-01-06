@@ -35,6 +35,244 @@ print(f"DATABRICKS_HOST: {os.getenv('DATABRICKS_HOST', 'NOT SET')}")
 print(f"DATABRICKS_TOKEN: {'SET' if os.getenv('DATABRICKS_TOKEN') else 'NOT SET'}")
 print(f"{'='*60}\n")
 
+
+# ============================================================
+# HEALTH SCORE CALCULATION FUNCTIONS
+# ============================================================
+
+def calculate_landlord_health_score(enriched_data):
+    """
+    Calculate a deterministic financial health score for landlords (1-10).
+    
+    Factors considered:
+    - Credit rating (0-2.5 points)
+    - Market cap / Total assets (0-1.5 points)
+    - Debt-to-equity ratio (0-1.5 points)
+    - Revenue / NOI (0-1.5 points)
+    - Bankruptcy risk indicator (0-1.5 points)
+    - News sentiment (0-1.5 points)
+    
+    Base score: 5.0
+    """
+    score = 5.0
+    
+    # Credit Rating (major factor)
+    credit_rating = (enriched_data.get('credit_rating') or '').upper()
+    if credit_rating:
+        if credit_rating in ['AAA']:
+            score += 2.5
+        elif credit_rating in ['AA+', 'AA', 'AA-']:
+            score += 2.0
+        elif credit_rating in ['A+', 'A', 'A-']:
+            score += 1.5
+        elif credit_rating in ['BBB+', 'BBB']:
+            score += 1.0
+        elif credit_rating in ['BBB-']:
+            score += 0.5
+        elif credit_rating.startswith('BB'):
+            score -= 0.5
+        elif credit_rating.startswith('B') and not credit_rating.startswith('BB'):
+            score -= 1.0
+        elif credit_rating.startswith('C'):
+            score -= 2.0
+    
+    # Market Cap / Total Assets (indicates financial strength)
+    market_cap = enriched_data.get('market_cap') or 0
+    total_assets = enriched_data.get('total_assets') or 0
+    financial_size = max(market_cap, total_assets)
+    
+    if financial_size > 50e9:  # > $50B
+        score += 1.5
+    elif financial_size > 10e9:  # > $10B
+        score += 1.0
+    elif financial_size > 1e9:  # > $1B
+        score += 0.5
+    elif financial_size > 100e6:  # > $100M
+        score += 0.0
+    elif financial_size > 0:
+        score -= 0.5
+    
+    # Debt-to-Equity Ratio (lower is better for stability)
+    de_ratio = enriched_data.get('debt_to_equity_ratio')
+    if de_ratio is not None:
+        if de_ratio < 0.5:
+            score += 1.5
+        elif de_ratio < 1.0:
+            score += 1.0
+        elif de_ratio < 1.5:
+            score += 0.5
+        elif de_ratio < 2.0:
+            score += 0.0
+        elif de_ratio < 3.0:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Revenue and NOI (profitability indicators)
+    annual_revenue = enriched_data.get('annual_revenue') or 0
+    noi = enriched_data.get('net_operating_income') or 0
+    
+    if annual_revenue > 0 and noi > 0:
+        noi_margin = noi / annual_revenue
+        if noi_margin > 0.4:  # > 40% NOI margin
+            score += 1.5
+        elif noi_margin > 0.3:
+            score += 1.0
+        elif noi_margin > 0.2:
+            score += 0.5
+        elif noi_margin < 0.1:
+            score -= 0.5
+    elif annual_revenue > 1e9:  # Has significant revenue
+        score += 0.5
+    
+    # Bankruptcy Risk (from Claude's assessment)
+    bankruptcy_risk = (enriched_data.get('bankruptcy_risk') or '').upper()
+    if bankruptcy_risk == 'LOW':
+        score += 1.5
+    elif bankruptcy_risk == 'MEDIUM':
+        score += 0.0
+    elif bankruptcy_risk == 'HIGH':
+        score -= 1.5
+    
+    # News Sentiment
+    sentiment = (enriched_data.get('recent_news_sentiment') or '').upper()
+    if sentiment == 'POSITIVE':
+        score += 1.0
+    elif sentiment == 'NEUTRAL':
+        score += 0.0
+    elif sentiment == 'NEGATIVE':
+        score -= 1.0
+    
+    # Clamp score between 1.0 and 10.0
+    return round(max(1.0, min(10.0, score)), 1)
+
+
+def calculate_tenant_health_score(enriched_data):
+    """
+    Calculate a deterministic financial health score for tenants (1-10).
+    
+    Factors considered:
+    - Credit rating (0-2.0 points)
+    - Revenue growth (0-1.5 points)
+    - Profit margin (0-1.5 points)
+    - Company size/employees (0-1.0 points)
+    - Years in business (0-1.0 points)
+    - Bankruptcy risk (0-1.5 points)
+    - Industry risk (0-1.0 points)
+    - Litigation flag (-0.5 points if true)
+    
+    Base score: 5.0
+    """
+    score = 5.0
+    
+    # Credit Rating
+    credit_rating = (enriched_data.get('credit_rating') or '').upper()
+    if credit_rating:
+        if credit_rating in ['AAA']:
+            score += 2.0
+        elif credit_rating in ['AA+', 'AA', 'AA-']:
+            score += 1.75
+        elif credit_rating in ['A+', 'A', 'A-']:
+            score += 1.5
+        elif credit_rating in ['BBB+', 'BBB']:
+            score += 1.0
+        elif credit_rating in ['BBB-']:
+            score += 0.5
+        elif credit_rating.startswith('BB'):
+            score -= 0.5
+        elif credit_rating.startswith('B') and not credit_rating.startswith('BB'):
+            score -= 1.0
+        elif credit_rating.startswith('C'):
+            score -= 1.5
+    
+    # Revenue Growth
+    revenue_growth = enriched_data.get('revenue_growth_pct')
+    if revenue_growth is not None:
+        if revenue_growth > 20:
+            score += 1.5
+        elif revenue_growth > 10:
+            score += 1.0
+        elif revenue_growth > 5:
+            score += 0.75
+        elif revenue_growth > 0:
+            score += 0.5
+        elif revenue_growth > -5:
+            score += 0.0
+        elif revenue_growth > -10:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Profit Margin
+    profit_margin = enriched_data.get('profit_margin_pct')
+    if profit_margin is not None:
+        if profit_margin > 20:
+            score += 1.5
+        elif profit_margin > 15:
+            score += 1.0
+        elif profit_margin > 10:
+            score += 0.75
+        elif profit_margin > 5:
+            score += 0.5
+        elif profit_margin > 0:
+            score += 0.0
+        elif profit_margin > -5:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Company Size (employees as proxy for stability)
+    employee_count = enriched_data.get('employee_count') or 0
+    if employee_count >= 10000:
+        score += 1.0
+    elif employee_count >= 1000:
+        score += 0.75
+    elif employee_count >= 100:
+        score += 0.5
+    elif employee_count >= 50:
+        score += 0.25
+    elif employee_count > 0 and employee_count < 10:
+        score -= 0.25
+    
+    # Years in Business (stability indicator)
+    years_in_business = enriched_data.get('years_in_business') or 0
+    if years_in_business >= 50:
+        score += 1.0
+    elif years_in_business >= 20:
+        score += 0.75
+    elif years_in_business >= 10:
+        score += 0.5
+    elif years_in_business >= 5:
+        score += 0.25
+    elif years_in_business > 0 and years_in_business < 3:
+        score -= 0.5
+    
+    # Bankruptcy Risk
+    bankruptcy_risk = (enriched_data.get('bankruptcy_risk') or '').upper()
+    if bankruptcy_risk == 'LOW':
+        score += 1.5
+    elif bankruptcy_risk == 'MEDIUM':
+        score += 0.0
+    elif bankruptcy_risk == 'HIGH':
+        score -= 1.5
+    
+    # Industry Risk
+    industry_risk = (enriched_data.get('industry_risk') or '').upper()
+    if industry_risk == 'LOW':
+        score += 1.0
+    elif industry_risk == 'MEDIUM':
+        score += 0.0
+    elif industry_risk == 'HIGH':
+        score -= 0.75
+    
+    # Litigation Flag (penalty if active litigation)
+    if enriched_data.get('litigation_flag'):
+        score -= 0.5
+    
+    # Clamp score between 1.0 and 10.0
+    return round(max(1.0, min(10.0, score)), 1)
+
+
 def get_client():
     """Get Databricks client"""
     try:
@@ -1412,6 +1650,10 @@ def validate_landlord_enrichment():
         
         print(f"Validating landlord enrichment: {landlord_id}")
         
+        # Calculate deterministic health score
+        calculated_health_score = calculate_landlord_health_score(enriched)
+        print(f"Calculated landlord health score: {calculated_health_score}")
+        
         def sql_val(val):
             if val is None:
                 return 'NULL'
@@ -1443,7 +1685,7 @@ def validate_landlord_enrichment():
                 {enriched.get('total_square_footage') or 'NULL'} as total_square_footage,
                 {sql_val(enriched.get('primary_property_types'))} as primary_property_types,
                 {sql_val(enriched.get('geographic_focus'))} as geographic_focus,
-                {enriched.get('financial_health_score') or 5.0} as financial_health_score,
+                {calculated_health_score} as financial_health_score,
                 {sql_val(enriched.get('bankruptcy_risk', 'MEDIUM'))} as bankruptcy_risk,
                 {sql_val(enriched.get('recent_news_sentiment', 'NEUTRAL'))} as recent_news_sentiment,
                 'AI_CLAUDE' as enrichment_source,
@@ -1513,6 +1755,10 @@ def validate_tenant_enrichment():
         
         print(f"Validating tenant enrichment: {tenant_id}")
         
+        # Calculate deterministic health score
+        calculated_health_score = calculate_tenant_health_score(enriched)
+        print(f"Calculated tenant health score: {calculated_health_score}")
+        
         def sql_val(val):
             if val is None:
                 return 'NULL'
@@ -1547,7 +1793,7 @@ def validate_tenant_enrichment():
                 {sql_val(enriched.get('credit_rating_agency'))} as credit_rating_agency,
                 {sql_val(enriched.get('duns_number'))} as duns_number,
                 {enriched.get('payment_history_score') or 'NULL'} as payment_history_score,
-                {enriched.get('financial_health_score') or 5.0} as financial_health_score,
+                {calculated_health_score} as financial_health_score,
                 {sql_val(enriched.get('bankruptcy_risk', 'MEDIUM'))} as bankruptcy_risk,
                 {sql_val(enriched.get('industry_risk', 'MEDIUM'))} as industry_risk,
                 {sql_val(enriched.get('recent_news_sentiment', 'NEUTRAL'))} as recent_news_sentiment,
