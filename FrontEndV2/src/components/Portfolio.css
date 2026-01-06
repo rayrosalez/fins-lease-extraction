@@ -513,6 +513,118 @@
   color: #ffffff;
 }
 
+/* Glossary Section */
+.glossary-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  backdrop-filter: blur(20px);
+}
+
+.glossary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.glossary-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.glossary-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 54, 33, 0.4);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.glossary-term {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #FF3621;
+  margin-bottom: 0.25rem;
+  letter-spacing: 1px;
+}
+
+.glossary-full-term {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glossary-definition {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+
+.glossary-formula {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.glossary-formula .formula-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.glossary-formula code {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  color: #FF3621;
+  background: none;
+}
+
+.glossary-factors {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.glossary-factors .factors-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.glossary-factors ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.glossary-factors li {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+}
+
+.glossary-factors li::marker {
+  color: #FF3621;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .dashboard-grid {
@@ -556,6 +668,488 @@
 
   .upload-area {
     padding: 2rem;
+  }
+}
+
+/* ========================================
+   LANDLORDS & TENANTS TABS
+   ======================================== */
+
+.landlords-section,
+.tenants-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+}
+
+/* Entity Metrics Grid */
+.entity-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.entity-metric-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 54, 33, 0.08);
+  border: 1px solid rgba(255, 54, 33, 0.2);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.entity-metric-card.tenant-card {
+  background: rgba(139, 69, 19, 0.08);
+  border-color: rgba(139, 69, 19, 0.2);
+}
+
+.entity-metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.entity-metric-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.entity-metric-icon.landlord-icon {
+  background: linear-gradient(135deg, #FF3621, #e62f1d);
+  color: #fff;
+}
+
+.entity-metric-icon.tenant-icon {
+  background: linear-gradient(135deg, #8B4513, #A0522D);
+  color: #fff;
+}
+
+.entity-metric-icon.revenue-icon {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+}
+
+.entity-metric-icon.health-icon {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #fff;
+}
+
+.entity-metric-icon.risk-icon {
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  color: #fff;
+}
+
+.entity-metric-icon.growth-icon {
+  background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+  color: #fff;
+}
+
+.entity-metric-content {
+  flex: 1;
+}
+
+.entity-metric-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.entity-metric-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 0.25rem;
+}
+
+/* Charts Grid */
+.entity-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.entity-chart-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Risk Distribution */
+.risk-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.risk-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.risk-label {
+  width: 70px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.risk-bar-container {
+  flex: 1;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.risk-bar {
+  height: 100%;
+  border-radius: 12px;
+  transition: width 0.5s ease;
+}
+
+.risk-bar.risk-low {
+  background: linear-gradient(90deg, #10B981, #34D399);
+}
+
+.risk-bar.risk-medium {
+  background: linear-gradient(90deg, #F59E0B, #FBBF24);
+}
+
+.risk-bar.risk-high {
+  background: linear-gradient(90deg, #EF4444, #F87171);
+}
+
+.risk-count {
+  width: 30px;
+  text-align: right;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Company Type Grid */
+.company-type-grid,
+.industry-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.company-type-item,
+.industry-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 54, 33, 0.1);
+  border: 1px solid rgba(255, 54, 33, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  min-width: 100px;
+}
+
+.industry-item {
+  background: rgba(139, 69, 19, 0.1);
+  border-color: rgba(139, 69, 19, 0.2);
+}
+
+.type-name,
+.industry-name {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.type-count,
+.industry-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #FF3621;
+  margin-left: 0.5rem;
+}
+
+.industry-count {
+  color: #8B4513;
+}
+
+/* Sentiment Grid */
+.sentiment-grid {
+  display: flex;
+  justify-content: space-around;
+  padding: 1rem 0;
+}
+
+.sentiment-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  border-radius: 12px;
+  min-width: 80px;
+}
+
+.sentiment-item.sentiment-positive {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.sentiment-item.sentiment-neutral {
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.sentiment-item.sentiment-negative {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.sentiment-emoji {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sentiment-count {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sentiment-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  margin-top: 0.25rem;
+}
+
+/* Size Distribution */
+.size-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.size-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.size-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.size-count {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #8B4513;
+}
+
+/* Entity Tables */
+.entity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.entity-table thead {
+  background: rgba(255, 54, 33, 0.1);
+}
+
+.tenant-table thead {
+  background: rgba(139, 69, 19, 0.1);
+}
+
+.entity-table th {
+  padding: 0.875rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #ffffff;
+  border-bottom: 2px solid rgba(255, 54, 33, 0.3);
+  white-space: nowrap;
+}
+
+.tenant-table th {
+  border-bottom-color: rgba(139, 69, 19, 0.3);
+}
+
+.entity-table td {
+  padding: 0.875rem 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.entity-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.name-cell {
+  font-weight: 600;
+  color: #fff !important;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticker-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #FF3621 !important;
+}
+
+/* Health Score Cell */
+.health-score-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 80px;
+}
+
+.health-score-cell .health-bar {
+  height: 6px;
+  background: linear-gradient(90deg, #FF3621, #FF6B4D);
+  border-radius: 3px;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.health-score-cell .health-bar.tenant-health {
+  background: linear-gradient(90deg, #8B4513, #A0522D);
+}
+
+.health-score-cell {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+}
+
+.health-score-cell span {
+  position: relative;
+  z-index: 1;
+  font-weight: 600;
+}
+
+/* Risk and Sentiment Badges */
+.risk-badge,
+.sentiment-badge,
+.growth-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.risk-badge.risk-low {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+}
+
+.risk-badge.risk-medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #F59E0B;
+}
+
+.risk-badge.risk-high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+.risk-badge.risk-unknown {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6B7280;
+}
+
+.sentiment-badge.sentiment-positive {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+}
+
+.sentiment-badge.sentiment-neutral {
+  background: rgba(107, 114, 128, 0.2);
+  color: #9CA3AF;
+}
+
+.sentiment-badge.sentiment-negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+.sentiment-badge.sentiment-unknown {
+  background: rgba(107, 114, 128, 0.2);
+  color: #6B7280;
+}
+
+.growth-badge.positive {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10B981;
+}
+
+.growth-badge.negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #EF4444;
+}
+
+/* Empty Table Message */
+.empty-table-message {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.empty-table-message svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-table-message p {
+  font-size: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Responsive for Entity Tabs */
+@media (max-width: 1024px) {
+  .entity-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .entity-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .entity-table {
+    font-size: 0.75rem;
+  }
+  
+  .entity-table th,
+  .entity-table td {
+    padding: 0.5rem;
   }
 }
 

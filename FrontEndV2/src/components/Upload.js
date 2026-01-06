@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FiUploadCloud, FiFile, FiCheck, FiX, FiClock, FiEdit2, FiSave, FiRefreshCw, FiTrash2 } from 'react-icons/fi';
 import ProcessingAnimation from './ProcessingAnimation';
 import ValidationForm from './ValidationForm';
+import EnrichmentValidation from './EnrichmentValidation';
 import './Upload.css';
 
 const Upload = () => {
@@ -23,6 +24,7 @@ const Upload = () => {
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationMessage, setValidationMessage] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [validatedLeaseData, setValidatedLeaseData] = useState(null); // Store validated lease for enrichment
 
   // Fetch new records on component mount
   useEffect(() => {
@@ -200,12 +202,15 @@ const Upload = () => {
 
       console.log('Validation successful:', result);
       
-      setUploadState('success');
-      setUploadSuccess(true);
+      // Store the validated lease data for enrichment step
+      setValidatedLeaseData({
+        ...extractedData,
+        ...validatedData
+      });
       
-      setTimeout(() => {
-        resetUpload();
-      }, 3000);
+      // Move to enrichment step instead of success
+      setUploadState('enrichment');
+      
     } catch (err) {
       console.error('Validation error:', err);
       setError(`Failed to save validation: ${err.message}`);
@@ -213,11 +218,32 @@ const Upload = () => {
     }
   };
 
+  const handleEnrichmentComplete = () => {
+    console.log('Enrichment complete');
+    setUploadState('success');
+    setUploadSuccess(true);
+    
+    setTimeout(() => {
+      resetUpload();
+    }, 3000);
+  };
+
+  const handleSkipEnrichment = () => {
+    console.log('Enrichment skipped');
+    setUploadState('success');
+    setUploadSuccess(true);
+    
+    setTimeout(() => {
+      resetUpload();
+    }, 3000);
+  };
+
   const resetUpload = () => {
     setUploadState('idle');
     setSelectedFile(null);
     setProcessingStage(0);
     setExtractedData(null);
+    setValidatedLeaseData(null);
     setUploadSuccess(false);
     setError(null);
     setIsTimeout(false);
@@ -467,6 +493,14 @@ const Upload = () => {
               record={extractedData}
               onSubmit={handleValidationComplete}
               onCancel={resetUpload}
+            />
+          )}
+
+          {uploadState === 'enrichment' && validatedLeaseData && (
+            <EnrichmentValidation
+              leaseRecord={validatedLeaseData}
+              onComplete={handleEnrichmentComplete}
+              onCancel={handleSkipEnrichment}
             />
           )}
 

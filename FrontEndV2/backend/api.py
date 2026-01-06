@@ -5,8 +5,15 @@ from databricks.sdk.service.sql import StatementState
 from dotenv import load_dotenv
 import os
 import traceback
+import requests
+import json
 
 load_dotenv()
+
+# Claude endpoint configuration
+DATABRICKS_HOST = os.getenv('DATABRICKS_HOST', '').rstrip('/')
+DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN')
+CLAUDE_ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/databricks-claude-sonnet-4-5/invocations"
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +34,244 @@ print(f"VOLUME: {VOLUME_NAME}")
 print(f"DATABRICKS_HOST: {os.getenv('DATABRICKS_HOST', 'NOT SET')}")
 print(f"DATABRICKS_TOKEN: {'SET' if os.getenv('DATABRICKS_TOKEN') else 'NOT SET'}")
 print(f"{'='*60}\n")
+
+
+# ============================================================
+# HEALTH SCORE CALCULATION FUNCTIONS
+# ============================================================
+
+def calculate_landlord_health_score(enriched_data):
+    """
+    Calculate a deterministic financial health score for landlords (1-10).
+    
+    Factors considered:
+    - Credit rating (0-2.5 points)
+    - Market cap / Total assets (0-1.5 points)
+    - Debt-to-equity ratio (0-1.5 points)
+    - Revenue / NOI (0-1.5 points)
+    - Bankruptcy risk indicator (0-1.5 points)
+    - News sentiment (0-1.5 points)
+    
+    Base score: 5.0
+    """
+    score = 5.0
+    
+    # Credit Rating (major factor)
+    credit_rating = (enriched_data.get('credit_rating') or '').upper()
+    if credit_rating:
+        if credit_rating in ['AAA']:
+            score += 2.5
+        elif credit_rating in ['AA+', 'AA', 'AA-']:
+            score += 2.0
+        elif credit_rating in ['A+', 'A', 'A-']:
+            score += 1.5
+        elif credit_rating in ['BBB+', 'BBB']:
+            score += 1.0
+        elif credit_rating in ['BBB-']:
+            score += 0.5
+        elif credit_rating.startswith('BB'):
+            score -= 0.5
+        elif credit_rating.startswith('B') and not credit_rating.startswith('BB'):
+            score -= 1.0
+        elif credit_rating.startswith('C'):
+            score -= 2.0
+    
+    # Market Cap / Total Assets (indicates financial strength)
+    market_cap = enriched_data.get('market_cap') or 0
+    total_assets = enriched_data.get('total_assets') or 0
+    financial_size = max(market_cap, total_assets)
+    
+    if financial_size > 50e9:  # > $50B
+        score += 1.5
+    elif financial_size > 10e9:  # > $10B
+        score += 1.0
+    elif financial_size > 1e9:  # > $1B
+        score += 0.5
+    elif financial_size > 100e6:  # > $100M
+        score += 0.0
+    elif financial_size > 0:
+        score -= 0.5
+    
+    # Debt-to-Equity Ratio (lower is better for stability)
+    de_ratio = enriched_data.get('debt_to_equity_ratio')
+    if de_ratio is not None:
+        if de_ratio < 0.5:
+            score += 1.5
+        elif de_ratio < 1.0:
+            score += 1.0
+        elif de_ratio < 1.5:
+            score += 0.5
+        elif de_ratio < 2.0:
+            score += 0.0
+        elif de_ratio < 3.0:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Revenue and NOI (profitability indicators)
+    annual_revenue = enriched_data.get('annual_revenue') or 0
+    noi = enriched_data.get('net_operating_income') or 0
+    
+    if annual_revenue > 0 and noi > 0:
+        noi_margin = noi / annual_revenue
+        if noi_margin > 0.4:  # > 40% NOI margin
+            score += 1.5
+        elif noi_margin > 0.3:
+            score += 1.0
+        elif noi_margin > 0.2:
+            score += 0.5
+        elif noi_margin < 0.1:
+            score -= 0.5
+    elif annual_revenue > 1e9:  # Has significant revenue
+        score += 0.5
+    
+    # Bankruptcy Risk (from Claude's assessment)
+    bankruptcy_risk = (enriched_data.get('bankruptcy_risk') or '').upper()
+    if bankruptcy_risk == 'LOW':
+        score += 1.5
+    elif bankruptcy_risk == 'MEDIUM':
+        score += 0.0
+    elif bankruptcy_risk == 'HIGH':
+        score -= 1.5
+    
+    # News Sentiment
+    sentiment = (enriched_data.get('recent_news_sentiment') or '').upper()
+    if sentiment == 'POSITIVE':
+        score += 1.0
+    elif sentiment == 'NEUTRAL':
+        score += 0.0
+    elif sentiment == 'NEGATIVE':
+        score -= 1.0
+    
+    # Clamp score between 1.0 and 10.0
+    return round(max(1.0, min(10.0, score)), 1)
+
+
+def calculate_tenant_health_score(enriched_data):
+    """
+    Calculate a deterministic financial health score for tenants (1-10).
+    
+    Factors considered:
+    - Credit rating (0-2.0 points)
+    - Revenue growth (0-1.5 points)
+    - Profit margin (0-1.5 points)
+    - Company size/employees (0-1.0 points)
+    - Years in business (0-1.0 points)
+    - Bankruptcy risk (0-1.5 points)
+    - Industry risk (0-1.0 points)
+    - Litigation flag (-0.5 points if true)
+    
+    Base score: 5.0
+    """
+    score = 5.0
+    
+    # Credit Rating
+    credit_rating = (enriched_data.get('credit_rating') or '').upper()
+    if credit_rating:
+        if credit_rating in ['AAA']:
+            score += 2.0
+        elif credit_rating in ['AA+', 'AA', 'AA-']:
+            score += 1.75
+        elif credit_rating in ['A+', 'A', 'A-']:
+            score += 1.5
+        elif credit_rating in ['BBB+', 'BBB']:
+            score += 1.0
+        elif credit_rating in ['BBB-']:
+            score += 0.5
+        elif credit_rating.startswith('BB'):
+            score -= 0.5
+        elif credit_rating.startswith('B') and not credit_rating.startswith('BB'):
+            score -= 1.0
+        elif credit_rating.startswith('C'):
+            score -= 1.5
+    
+    # Revenue Growth
+    revenue_growth = enriched_data.get('revenue_growth_pct')
+    if revenue_growth is not None:
+        if revenue_growth > 20:
+            score += 1.5
+        elif revenue_growth > 10:
+            score += 1.0
+        elif revenue_growth > 5:
+            score += 0.75
+        elif revenue_growth > 0:
+            score += 0.5
+        elif revenue_growth > -5:
+            score += 0.0
+        elif revenue_growth > -10:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Profit Margin
+    profit_margin = enriched_data.get('profit_margin_pct')
+    if profit_margin is not None:
+        if profit_margin > 20:
+            score += 1.5
+        elif profit_margin > 15:
+            score += 1.0
+        elif profit_margin > 10:
+            score += 0.75
+        elif profit_margin > 5:
+            score += 0.5
+        elif profit_margin > 0:
+            score += 0.0
+        elif profit_margin > -5:
+            score -= 0.5
+        else:
+            score -= 1.0
+    
+    # Company Size (employees as proxy for stability)
+    employee_count = enriched_data.get('employee_count') or 0
+    if employee_count >= 10000:
+        score += 1.0
+    elif employee_count >= 1000:
+        score += 0.75
+    elif employee_count >= 100:
+        score += 0.5
+    elif employee_count >= 50:
+        score += 0.25
+    elif employee_count > 0 and employee_count < 10:
+        score -= 0.25
+    
+    # Years in Business (stability indicator)
+    years_in_business = enriched_data.get('years_in_business') or 0
+    if years_in_business >= 50:
+        score += 1.0
+    elif years_in_business >= 20:
+        score += 0.75
+    elif years_in_business >= 10:
+        score += 0.5
+    elif years_in_business >= 5:
+        score += 0.25
+    elif years_in_business > 0 and years_in_business < 3:
+        score -= 0.5
+    
+    # Bankruptcy Risk
+    bankruptcy_risk = (enriched_data.get('bankruptcy_risk') or '').upper()
+    if bankruptcy_risk == 'LOW':
+        score += 1.5
+    elif bankruptcy_risk == 'MEDIUM':
+        score += 0.0
+    elif bankruptcy_risk == 'HIGH':
+        score -= 1.5
+    
+    # Industry Risk
+    industry_risk = (enriched_data.get('industry_risk') or '').upper()
+    if industry_risk == 'LOW':
+        score += 1.0
+    elif industry_risk == 'MEDIUM':
+        score += 0.0
+    elif industry_risk == 'HIGH':
+        score -= 0.75
+    
+    # Litigation Flag (penalty if active litigation)
+    if enriched_data.get('litigation_flag'):
+        score -= 0.5
+    
+    # Clamp score between 1.0 and 10.0
+    return round(max(1.0, min(10.0, score)), 1)
+
 
 def get_client():
     """Get Databricks client"""
@@ -1168,580 +1413,667 @@ def get_risk_assessment():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
-# ============================================================================
-# FORECASTING ENDPOINTS
-# ============================================================================
-
-@app.route('/api/forecasting/upload', methods=['POST'])
-def upload_forecasting_lease():
-    """Upload a lease document for forecasting (labeled as 'Forecasting' in bronze)"""
+def call_claude_enrichment(prompt):
+    """Call Claude AI endpoint for enrichment"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
+        headers = {
+            "Authorization": f"Bearer {DATABRICKS_TOKEN}",
+            "Content-Type": "application/json"
+        }
         
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
+        payload = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 2000
+        }
         
-        print(f"Uploading forecasting file: {file.filename}")
+        print(f"Calling Claude endpoint: {CLAUDE_ENDPOINT_URL}")
+        response = requests.post(CLAUDE_ENDPOINT_URL, headers=headers, json=payload, timeout=60)
         
-        # Generate unique ID (without FORECAST prefix here)
-        import uuid
-        unique_id = uuid.uuid4().hex[:8]
-        forecast_id = f"FORECAST_{unique_id}"
+        if response.status_code == 200:
+            result = response.json()
+            # Extract the content from Claude's response
+            if 'choices' in result and len(result['choices']) > 0:
+                content = result['choices'][0].get('message', {}).get('content', '')
+                return content, None
+            return None, "No content in Claude response"
+        else:
+            return None, f"Claude endpoint returned {response.status_code}: {response.text}"
+    except Exception as e:
+        return None, f"Error calling Claude: {str(e)}"
+
+
+def parse_enrichment_json(text):
+    """Extract JSON from Claude's response text"""
+    try:
+        # Try to find JSON in the response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', text)
+        if json_match:
+            return json.loads(json_match.group()), None
+        return None, "No JSON found in response"
+    except json.JSONDecodeError as e:
+        return None, f"JSON parse error: {str(e)}"
+
+
+@app.route('/api/enrich/landlord', methods=['POST'])
+def enrich_landlord():
+    """Enrich landlord data using Claude AI"""
+    try:
+        data = request.json
+        landlord_name = data.get('landlord_name')
+        landlord_address = data.get('landlord_address', '')
         
-        # Prefix the filename with FORECAST and unique ID
-        original_filename = file.filename
-        forecast_filename = f"FORECAST_{unique_id}_{original_filename}"
+        if not landlord_name:
+            return jsonify({'error': 'landlord_name is required'}), 400
         
-        print(f"Forecast ID: {forecast_id}")
-        print(f"Forecast filename: {forecast_filename}")
+        print(f"Enriching landlord: {landlord_name}")
         
-        # Read file content
-        file_content = file.read()
-        print(f"File size: {len(file_content)} bytes")
+        # Create landlord_id
+        landlord_id = landlord_name.lower().replace(' ', '_').replace(',', '').replace('.', '')
         
-        # Get Databricks client
-        client, error = get_client()
+        # Check if landlord already exists
+        check_query = f"""
+        SELECT * FROM {CATALOG}.{SCHEMA}.landlords 
+        WHERE landlord_id = '{landlord_id}'
+        """
+        existing, _ = execute_query(check_query)
+        if existing and len(existing) > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Landlord already enriched',
+                'landlord_id': landlord_id,
+                'already_exists': True
+            })
+        
+        # Build prompt for Claude
+        prompt = f"""Search for and provide financial and company information about this commercial real estate landlord/property owner:
+
+Company Name: {landlord_name}
+Address: {landlord_address or 'Unknown'}
+
+Please find the following information and return it as a JSON object:
+{{
+    "company_type": "REIT, Private, Public, or other",
+    "stock_ticker": "ticker symbol if publicly traded, null otherwise",
+    "market_cap": null or number in USD,
+    "total_assets": null or number in USD,
+    "credit_rating": "credit rating like AAA, BBB+, etc. or null",
+    "credit_rating_agency": "S&P, Moody's, Fitch, or null",
+    "annual_revenue": null or number in USD,
+    "net_operating_income": null or number in USD,
+    "debt_to_equity_ratio": null or number,
+    "total_properties": null or number,
+    "total_square_footage": null or number,
+    "primary_property_types": "Office, Retail, Industrial, etc.",
+    "geographic_focus": "primary markets/regions",
+    "financial_health_score": 1-10 estimate based on available data,
+    "bankruptcy_risk": "LOW, MEDIUM, or HIGH",
+    "recent_news_sentiment": "POSITIVE, NEUTRAL, or NEGATIVE"
+}}
+
+Return ONLY the JSON object, no other text."""
+
+        content, error = call_claude_enrichment(prompt)
+        
         if error:
-            print(f"Databricks connection error: {error}")
-            # For demo purposes, return success even if DB connection fails
-            return jsonify({
-                'success': True,
-                'lease_id': forecast_id,
-                'unique_id': unique_id,
-                'filename': original_filename,
-                'forecast_filename': forecast_filename,
-                'message': 'File uploaded successfully for forecasting analysis (demo mode)'
-            })
+            print(f"Claude enrichment error: {error}")
+            return jsonify({'error': error}), 500
         
-        # Upload to Databricks volume with forecast prefix
-        volume_path = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME_NAME}"
-        print(f"Volume path: {volume_path}")
+        # Parse the JSON response
+        enriched_data, parse_error = parse_enrichment_json(content)
         
-        from utils import upload_to_volume
-        success, file_path, error = upload_to_volume(
-            client,
-            file_content,
-            forecast_filename,  # Use prefixed filename
-            volume_path
-        )
-        
-        if success:
-            print(f"Forecasting file uploaded successfully: {file_path}")
-            
-            return jsonify({
-                'success': True,
-                'lease_id': forecast_id,
-                'unique_id': unique_id,
-                'filename': original_filename,
-                'forecast_filename': forecast_filename,
-                'file_path': file_path,
-                'message': 'File uploaded successfully for forecasting analysis'
-            })
-        else:
-            print(f"Upload failed: {error}")
-            # For demo, return success anyway with simulated data
-            return jsonify({
-                'success': True,
-                'lease_id': forecast_id,
-                'unique_id': unique_id,
-                'filename': original_filename,
-                'forecast_filename': forecast_filename,
-                'message': 'File uploaded successfully for forecasting analysis (demo mode)'
-            })
-            
-    except Exception as e:
-        error_msg = f"Exception in upload_forecasting_lease: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/forecasting/impact/<lease_id>', methods=['GET'])
-def get_forecasting_impact(lease_id):
-    """Get the forecasting impact analysis for a specific lease"""
-    try:
-        print(f"\n{'='*60}")
-        print(f"FORECASTING IMPACT REQUEST for lease_id: {lease_id}")
-        print(f"{'='*60}")
-        
-        # Extract just the unique ID part (remove FORECAST_ prefix if present)
-        if lease_id.startswith('FORECAST_'):
-            unique_id = lease_id.replace('FORECAST_', '')
-        else:
-            unique_id = lease_id
-        
-        print(f"Searching for unique_id: {unique_id}")
-        
-        # First check if the file has been ingested to raw layer
-        # Search for the unique ID in the filename
-        raw_query = f"""
-        SELECT 
-            file_path,
-            ingested_at
-        FROM {CATALOG}.{SCHEMA}.raw_leases
-        WHERE file_path LIKE '%{unique_id}%'
-        LIMIT 1
-        """
-        
-        print(f"Executing raw_leases query...")
-        print(f"Query: {raw_query}")
-        raw_data, raw_error = execute_query(raw_query)
-        
-        if raw_error:
-            print(f"ERROR in raw_leases query: {raw_error}")
-            return jsonify({'status': 'processing', 'message': 'File ingestion in progress...'}), 202
-        
-        if not raw_data or len(raw_data) == 0:
-            print(f"No raw data found - file not yet ingested")
-            return jsonify({'status': 'processing', 'message': 'File ingestion in progress...'}), 202
-        
-        raw_ingested_at = raw_data[0][1]
-        file_path = raw_data[0][0]
-        print(f"✓ Found raw lease at: {file_path}")
-        print(f"✓ Ingested at: {raw_ingested_at}")
-        
-        # Debug: Check what's in bronze around this time
-        debug_query = f"""
-        SELECT extraction_id, tenant_name, uploaded_at
-        FROM {CATALOG}.{SCHEMA}.bronze_leases
-        ORDER BY uploaded_at DESC
-        LIMIT 5
-        """
-        debug_data, _ = execute_query(debug_query)
-        if debug_data:
-            print(f"Recent bronze records:")
-            for rec in debug_data:
-                print(f"  - {rec[0]}: {rec[1]} @ {rec[2]}")
-        
-        # Now check if it's been extracted to bronze layer
-        bronze_query = f"""
-        SELECT 
-            extraction_id,
-            tenant_name,
-            property_address,
-            industry_sector,
-            commencement_date,
-            expiration_date,
-            term_months,
-            rentable_square_feet,
-            annual_base_rent,
-            base_rent_psf,
-            annual_escalation_pct,
-            validation_status,
-            uploaded_at
-        FROM {CATALOG}.{SCHEMA}.bronze_leases
-        WHERE uploaded_at = '{raw_ingested_at}'
-        ORDER BY extracted_at DESC
-        LIMIT 1
-        """
-        
-        print(f"Executing bronze_leases query...")
-        bronze_data, bronze_error = execute_query(bronze_query)
-        
-        if bronze_error:
-            print(f"ERROR in bronze_leases query: {bronze_error}")
-            return jsonify({'status': 'processing', 'message': 'AI extraction in progress...'}), 202
-        
-        # If no data found yet, return processing status
-        if not bronze_data or len(bronze_data) == 0:
-            print(f"No bronze data found - extraction not yet complete")
-            return jsonify({'status': 'processing', 'message': 'AI extraction in progress...'}), 202
-        
-        # Extract the bronze data
-        row = bronze_data[0]
-        extraction_id = row[0]
-        validation_status = row[11]
-        uploaded_at = row[12]
-        
-        print(f"✓ Found bronze record: {extraction_id}")
-        print(f"✓ Current validation_status: {validation_status}")
-        
-        # Update the validation_status to 'Forecasting' if it's still 'NEW'
-        if validation_status == 'NEW':
-            print(f"Updating validation_status to 'Forecasting'...")
-            update_query = f"""
-            UPDATE {CATALOG}.{SCHEMA}.bronze_leases
-            SET validation_status = 'Forecasting'
-            WHERE extraction_id = '{extraction_id}'
-            """
-            _, update_error = execute_query(update_query)
-            if update_error:
-                print(f"Warning: Could not update validation_status: {update_error}")
-            else:
-                validation_status = 'Forecasting'
-                print(f"✓ Updated validation_status to Forecasting")
-        
-        print(f"Fetching current portfolio metrics...")
-        
-        # Get current portfolio metrics (excluding forecasting leases)
-        current_kpis_query = f"""
-        WITH base_kpis AS (
-            SELECT 
-                COUNT(*) as total_leases,
-                AVG(base_rent_psf) as avg_rent_psf,
-                AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE tenant_name IS NOT NULL
-        ),
-        risk_kpis AS (
-            SELECT 
-                AVG(total_risk_score) as avg_risk_score
-            FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
-        )
-        SELECT 
-            b.total_leases,
-            b.avg_rent_psf,
-            b.portfolio_walt,
-            COALESCE(r.avg_risk_score, 0) as avg_risk_score
-        FROM base_kpis b
-        CROSS JOIN risk_kpis r
-        """
-        
-        current_data, error = execute_query(current_kpis_query)
-        
-        # If query fails, use default values for demo
-        if error or not current_data:
-            print(f"Warning: Could not fetch current portfolio data: {error}")
-            current_metrics = {
-                'total_leases': 10,
-                'avg_rent_psf': 45.50,
-                'portfolio_walt': 4.2,
-                'avg_risk_score': 52.3
-            }
-        else:
-            current_row = current_data[0]
-            current_metrics = {
-                'total_leases': int(current_row[0]) if current_row[0] else 10,
-                'avg_rent_psf': float(current_row[1]) if current_row[1] else 45.50,
-                'portfolio_walt': float(current_row[2]) if current_row[2] else 4.2,
-                'avg_risk_score': float(current_row[3]) if current_row[3] else 52.3
+        if parse_error:
+            print(f"Parse error: {parse_error}")
+            # Return the raw content for debugging
+            enriched_data = {
+                'company_type': None,
+                'financial_health_score': 5.0,
+                'bankruptcy_risk': 'MEDIUM',
+                'recent_news_sentiment': 'NEUTRAL'
             }
         
-        print(f"✓ Current portfolio metrics: {current_metrics}")
-        
-        # Build new lease data from extracted bronze record
-        new_lease = {
-            'tenant_name': row[1] if row[1] else 'Unknown Tenant',
-            'property_id': row[2] if row[2] else 'N/A',
-            'industry_sector': row[3] if row[3] else 'N/A',
-            'square_footage': int(float(row[7])) if row[7] else 0,
-            'estimated_annual_rent': int(float(row[8])) if row[8] else 0,
-            'term_months': int(float(row[6])) if row[6] else 60,
-            'base_rent_psf': float(row[9]) if row[9] else 0,
-            'commencement_date': str(row[4]) if row[4] else None,
-            'expiration_date': str(row[5]) if row[5] else None,
-            'annual_escalation_pct': float(row[10]) if row[10] else 0
-        }
-        
-        print(f"✓ Extracted lease data: tenant={new_lease['tenant_name']}, rent=${new_lease['estimated_annual_rent']}")
-        
-        # Calculate a risk score for the new lease based on its characteristics
-        term_years = new_lease['term_months'] / 12.0
-        
-        # Term risk: shorter leases = higher risk
-        if term_years < 3:
-            term_risk = 80
-        elif term_years < 5:
-            term_risk = 60
-        elif term_years < 7:
-            term_risk = 40
-        else:
-            term_risk = 20
-        
-        # Escalation risk: lower escalation = higher risk
-        escalation = new_lease['annual_escalation_pct']
-        if escalation < 2.0:
-            escalation_risk = 80
-        elif escalation < 3.0:
-            escalation_risk = 50
-        elif escalation < 4.0:
-            escalation_risk = 30
-        else:
-            escalation_risk = 20
-        
-        # Simple average of risk factors
-        new_lease['risk_score'] = (term_risk + escalation_risk) / 2.0
-        
-        # Calculate projected metrics
-        total_leases_new = current_metrics['total_leases'] + 1
-        
-        # Weighted average for rent PSF
-        if new_lease['base_rent_psf'] > 0:
-            total_current_rent = current_metrics['avg_rent_psf'] * current_metrics['total_leases']
-            projected_avg_rent_psf = (total_current_rent + new_lease['base_rent_psf']) / total_leases_new
-        else:
-            projected_avg_rent_psf = current_metrics['avg_rent_psf']
-        
-        # Weighted average for WALT
-        total_current_walt = current_metrics['portfolio_walt'] * current_metrics['total_leases']
-        projected_walt = (total_current_walt + term_years) / total_leases_new
-        
-        # Weighted average for risk score
-        total_current_risk = current_metrics['avg_risk_score'] * current_metrics['total_leases']
-        projected_risk_score = (total_current_risk + new_lease['risk_score']) / total_leases_new
-        
-        projected_metrics = {
-            'total_leases': total_leases_new,
-            'avg_rent_psf': projected_avg_rent_psf,
-            'portfolio_walt': projected_walt,
-            'avg_risk_score': projected_risk_score
-        }
-        
-        impact = {
-            'leases_change': 1,
-            'rent_psf_change': projected_avg_rent_psf - current_metrics['avg_rent_psf'],
-            'walt_change': projected_walt - current_metrics['portfolio_walt'],
-            'risk_change': projected_risk_score - current_metrics['avg_risk_score']
-        }
-        
-        print(f"✓ Calculation complete - returning ready status")
-        print(f"{'='*60}\n")
-        
-        return jsonify({
-            'status': 'ready',
-            'lease_id': lease_id,
-            'extraction_id': extraction_id,
-            'current': current_metrics,
-            'projected': projected_metrics,
-            'impact': impact,
-            'new_lease': new_lease
-        })
-        
-    except Exception as e:
-        error_msg = f"Exception in get_forecasting_impact: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return jsonify({'error': str(e)}), 500
-        
-        # Now check if it's been extracted to bronze layer
-        bronze_query = f"""
-        SELECT 
-            extraction_id,
-            tenant_name,
-            property_id,
-            industry_sector,
-            commencement_date,
-            expiration_date,
-            term_months,
-            rentable_square_feet,
-            annual_base_rent,
-            base_rent_psf,
-            annual_escalation_pct,
-            validation_status,
-            uploaded_at
-        FROM {CATALOG}.{SCHEMA}.bronze_leases
-        WHERE uploaded_at = '{raw_ingested_at}'
-        ORDER BY extracted_at DESC
-        LIMIT 1
-        """
-        
-        print(f"Executing bronze_leases query...")
-        bronze_data, bronze_error = execute_query(bronze_query)
-        
-        if bronze_error:
-            print(f"ERROR in bronze_leases query: {bronze_error}")
-            return jsonify({'status': 'processing', 'message': 'AI extraction in progress...'}), 202
-        
-        # If no data found yet, return processing status
-        if not bronze_data or len(bronze_data) == 0:
-            print(f"No bronze data found - extraction not yet complete")
-            return jsonify({'status': 'processing', 'message': 'AI extraction in progress...'}), 202
-        
-        # Extract the bronze data
-        row = bronze_data[0]
-        extraction_id = row[0]
-        validation_status = row[11]
-        uploaded_at = row[12]
-        
-        print(f"✓ Found bronze record: {extraction_id}")
-        print(f"✓ Current validation_status: {validation_status}")
-        
-        # Update the validation_status to 'Forecasting' if it's still 'NEW'
-        if validation_status == 'NEW':
-            print(f"Updating validation_status to 'Forecasting'...")
-            update_query = f"""
-            UPDATE {CATALOG}.{SCHEMA}.bronze_leases
-            SET validation_status = 'Forecasting'
-            WHERE extraction_id = '{extraction_id}'
-            """
-            _, update_error = execute_query(update_query)
-            if update_error:
-                print(f"Warning: Could not update validation_status: {update_error}")
-            else:
-                validation_status = 'Forecasting'
-                print(f"✓ Updated validation_status to Forecasting")
-        
-        print(f"Fetching current portfolio metrics...")
-        
-        # Get current portfolio metrics (excluding forecasting leases)
-        current_kpis_query = f"""
-        WITH base_kpis AS (
-            SELECT 
-                COUNT(*) as total_leases,
-                AVG(base_rent_psf) as avg_rent_psf,
-                AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE tenant_name IS NOT NULL
-        ),
-        risk_kpis AS (
-            SELECT 
-                AVG(total_risk_score) as avg_risk_score
-            FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
-        )
-        SELECT 
-            b.total_leases,
-            b.avg_rent_psf,
-            b.portfolio_walt,
-            COALESCE(r.avg_risk_score, 0) as avg_risk_score
-        FROM base_kpis b
-        CROSS JOIN risk_kpis r
-        """
-        
-        current_data, error = execute_query(current_kpis_query)
-        
-        # If query fails, use default values for demo
-        if error or not current_data:
-            print(f"Warning: Could not fetch current portfolio data: {error}")
-            current_metrics = {
-                'total_leases': 10,
-                'avg_rent_psf': 45.50,
-                'portfolio_walt': 4.2,
-                'avg_risk_score': 52.3
-            }
-        else:
-            current_row = current_data[0]
-            current_metrics = {
-                'total_leases': int(current_row[0]) if current_row[0] else 10,
-                'avg_rent_psf': float(current_row[1]) if current_row[1] else 45.50,
-                'portfolio_walt': float(current_row[2]) if current_row[2] else 4.2,
-                'avg_risk_score': float(current_row[3]) if current_row[3] else 52.3
-            }
-        
-        print(f"✓ Current portfolio metrics: {current_metrics}")
-        
-        # Build new lease data from extracted bronze record
-        new_lease = {
-            'tenant_name': row[1] if row[1] else 'Unknown Tenant',
-            'property_id': row[2] if row[2] else 'N/A',
-            'industry_sector': row[3] if row[3] else 'N/A',
-            'square_footage': int(float(row[7])) if row[7] else 0,
-            'estimated_annual_rent': int(float(row[8])) if row[8] else 0,
-            'term_months': int(float(row[6])) if row[6] else 60,
-            'base_rent_psf': float(row[9]) if row[9] else 0,
-            'commencement_date': str(row[4]) if row[4] else None,
-            'expiration_date': str(row[5]) if row[5] else None,
-            'annual_escalation_pct': float(row[10]) if row[10] else 0
-        }
-        
-        print(f"✓ Extracted lease data: tenant={new_lease['tenant_name']}, rent=${new_lease['estimated_annual_rent']}")
-        
-        # Calculate a risk score for the new lease based on its characteristics
-        term_years = new_lease['term_months'] / 12.0
-        
-        # Term risk: shorter leases = higher risk
-        if term_years < 3:
-            term_risk = 80
-        elif term_years < 5:
-            term_risk = 60
-        elif term_years < 7:
-            term_risk = 40
-        else:
-            term_risk = 20
-        
-        # Escalation risk: lower escalation = higher risk
-        escalation = new_lease['annual_escalation_pct']
-        if escalation < 2.0:
-            escalation_risk = 80
-        elif escalation < 3.0:
-            escalation_risk = 50
-        elif escalation < 4.0:
-            escalation_risk = 30
-        else:
-            escalation_risk = 20
-        
-        # Simple average of risk factors
-        new_lease['risk_score'] = (term_risk + escalation_risk) / 2.0
-        
-        # Calculate projected metrics
-        total_leases_new = current_metrics['total_leases'] + 1
-        
-        # Weighted average for rent PSF
-        if new_lease['base_rent_psf'] > 0:
-            total_current_rent = current_metrics['avg_rent_psf'] * current_metrics['total_leases']
-            projected_avg_rent_psf = (total_current_rent + new_lease['base_rent_psf']) / total_leases_new
-        else:
-            projected_avg_rent_psf = current_metrics['avg_rent_psf']
-        
-        # Weighted average for WALT
-        total_current_walt = current_metrics['portfolio_walt'] * current_metrics['total_leases']
-        projected_walt = (total_current_walt + term_years) / total_leases_new
-        
-        # Weighted average for risk score
-        total_current_risk = current_metrics['avg_risk_score'] * current_metrics['total_leases']
-        projected_risk_score = (total_current_risk + new_lease['risk_score']) / total_leases_new
-        
-        projected_metrics = {
-            'total_leases': total_leases_new,
-            'avg_rent_psf': projected_avg_rent_psf,
-            'portfolio_walt': projected_walt,
-            'avg_risk_score': projected_risk_score
-        }
-        
-        impact = {
-            'leases_change': 1,
-            'rent_psf_change': projected_avg_rent_psf - current_metrics['avg_rent_psf'],
-            'walt_change': projected_walt - current_metrics['portfolio_walt'],
-            'risk_change': projected_risk_score - current_metrics['avg_risk_score']
-        }
-        
-        print(f"✓ Calculation complete - returning ready status")
-        print(f"{'='*60}\n")
-        
-        return jsonify({
-            'status': 'ready',
-            'lease_id': lease_id,
-            'extraction_id': extraction_id,
-            'current': current_metrics,
-            'projected': projected_metrics,
-            'impact': impact,
-            'new_lease': new_lease
-        })
-        
-    except Exception as e:
-        error_msg = f"Exception in get_forecasting_impact: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/forecasting/approve/<lease_id>', methods=['POST'])
-def approve_forecasting_lease(lease_id):
-    """Approve a forecasting lease and change its status to 'Verified'"""
-    try:
-        # Update the validation_status from 'Forecasting' to 'Verified'
-        update_query = f"""
-        UPDATE {CATALOG}.{SCHEMA}.bronze_leases
-        SET validation_status = 'Verified'
-        WHERE lease_id = '{lease_id}' AND validation_status = 'Forecasting'
-        """
-        
-        _, error = execute_query(update_query)
-        if error:
-            return jsonify({'error': f'Failed to approve lease: {error}'}), 500
-        
-        # In a real implementation, this would also:
-        # 1. Promote the lease from bronze to silver
-        # 2. Update gold layer risk scores
-        # 3. Refresh portfolio metrics
-        
+        # Return enriched data for user validation (don't insert yet)
         return jsonify({
             'success': True,
-            'lease_id': lease_id,
-            'message': 'Lease approved and added to portfolio',
-            'new_status': 'Verified'
+            'landlord_id': landlord_id,
+            'landlord_name': landlord_name,
+            'landlord_address': landlord_address,
+            'enriched_data': enriched_data,
+            'raw_response': content
         })
         
     except Exception as e:
-        error_msg = f"Exception in approve_forecasting_lease: {str(e)}\n{traceback.format_exc()}"
+        error_msg = f"Exception in enrich_landlord: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/enrich/tenant', methods=['POST'])
+def enrich_tenant():
+    """Enrich tenant data using Claude AI"""
+    try:
+        data = request.json
+        tenant_name = data.get('tenant_name')
+        tenant_address = data.get('tenant_address', '')
+        industry_sector = data.get('industry_sector', '')
+        
+        if not tenant_name:
+            return jsonify({'error': 'tenant_name is required'}), 400
+        
+        print(f"Enriching tenant: {tenant_name}")
+        
+        # Create tenant_id
+        tenant_id = tenant_name.lower().replace(' ', '_').replace(',', '').replace('.', '')
+        
+        # Check if tenant already exists
+        check_query = f"""
+        SELECT * FROM {CATALOG}.{SCHEMA}.tenants 
+        WHERE tenant_id = '{tenant_id}'
+        """
+        existing, _ = execute_query(check_query)
+        if existing and len(existing) > 0:
+            return jsonify({
+                'success': True,
+                'message': 'Tenant already enriched',
+                'tenant_id': tenant_id,
+                'already_exists': True
+            })
+        
+        # Build prompt for Claude
+        prompt = f"""Search for and provide financial and company information about this business/tenant:
+
+Company Name: {tenant_name}
+Industry: {industry_sector or 'Unknown'}
+Address: {tenant_address or 'Unknown'}
+
+Please find the following information and return it as a JSON object:
+{{
+    "company_type": "Public, Private, Subsidiary, or Non-profit",
+    "parent_company": "parent company name if subsidiary, null otherwise",
+    "stock_ticker": "ticker symbol if publicly traded, null otherwise",
+    "founding_year": null or year number,
+    "employee_count": null or number,
+    "headquarters_location": "city, state",
+    "market_cap": null or number in USD,
+    "annual_revenue": null or number in USD,
+    "net_income": null or number in USD,
+    "revenue_growth_pct": null or percentage,
+    "profit_margin_pct": null or percentage,
+    "credit_rating": "credit rating like AAA, BBB+, etc. or null",
+    "credit_rating_agency": "S&P, Moody's, Fitch, or null",
+    "payment_history_score": 1-100 estimate,
+    "financial_health_score": 1-10 estimate based on available data,
+    "bankruptcy_risk": "LOW, MEDIUM, or HIGH",
+    "industry_risk": "LOW, MEDIUM, or HIGH based on sector volatility",
+    "recent_news_sentiment": "POSITIVE, NEUTRAL, or NEGATIVE",
+    "litigation_flag": true or false if significant litigation found,
+    "locations_count": null or number,
+    "years_in_business": null or number
+}}
+
+Return ONLY the JSON object, no other text."""
+
+        content, error = call_claude_enrichment(prompt)
+        
+        if error:
+            print(f"Claude enrichment error: {error}")
+            return jsonify({'error': error}), 500
+        
+        # Parse the JSON response
+        enriched_data, parse_error = parse_enrichment_json(content)
+        
+        if parse_error:
+            print(f"Parse error: {parse_error}")
+            enriched_data = {
+                'company_type': None,
+                'financial_health_score': 5.0,
+                'bankruptcy_risk': 'MEDIUM',
+                'industry_risk': 'MEDIUM',
+                'recent_news_sentiment': 'NEUTRAL'
+            }
+        
+        # Return enriched data for user validation (don't insert yet)
+        return jsonify({
+            'success': True,
+            'tenant_id': tenant_id,
+            'tenant_name': tenant_name,
+            'tenant_address': tenant_address,
+            'industry_sector': industry_sector,
+            'enriched_data': enriched_data,
+            'raw_response': content
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in enrich_tenant: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/enrich/validate-landlord', methods=['POST'])
+def validate_landlord_enrichment():
+    """Validate and save enriched landlord data to landlords table"""
+    try:
+        data = request.json
+        landlord_id = data.get('landlord_id')
+        landlord_name = data.get('landlord_name')
+        landlord_address = data.get('landlord_address', '')
+        enriched = data.get('enriched_data', {})
+        
+        if not landlord_id or not landlord_name:
+            return jsonify({'error': 'landlord_id and landlord_name are required'}), 400
+        
+        print(f"Validating landlord enrichment: {landlord_id}")
+        
+        # Calculate deterministic health score
+        calculated_health_score = calculate_landlord_health_score(enriched)
+        print(f"Calculated landlord health score: {calculated_health_score}")
+        
+        def sql_val(val):
+            if val is None:
+                return 'NULL'
+            if isinstance(val, bool):
+                return 'TRUE' if val else 'FALSE'
+            if isinstance(val, (int, float)):
+                return str(val)
+            escaped = str(val).replace("'", "''")
+            return f"'{escaped}'"
+        
+        # Insert/update landlords table
+        merge_query = f"""
+        MERGE INTO {CATALOG}.{SCHEMA}.landlords AS target
+        USING (
+            SELECT 
+                {sql_val(landlord_id)} as landlord_id,
+                {sql_val(landlord_name)} as landlord_name,
+                {sql_val(landlord_address)} as landlord_address,
+                {sql_val(enriched.get('company_type'))} as company_type,
+                {sql_val(enriched.get('stock_ticker'))} as stock_ticker,
+                {enriched.get('market_cap') or 'NULL'} as market_cap,
+                {enriched.get('total_assets') or 'NULL'} as total_assets,
+                {sql_val(enriched.get('credit_rating'))} as credit_rating,
+                {sql_val(enriched.get('credit_rating_agency'))} as credit_rating_agency,
+                {enriched.get('annual_revenue') or 'NULL'} as annual_revenue,
+                {enriched.get('net_operating_income') or 'NULL'} as net_operating_income,
+                {enriched.get('debt_to_equity_ratio') or 'NULL'} as debt_to_equity_ratio,
+                {enriched.get('total_properties') or 'NULL'} as total_properties,
+                {enriched.get('total_square_footage') or 'NULL'} as total_square_footage,
+                {sql_val(enriched.get('primary_property_types'))} as primary_property_types,
+                {sql_val(enriched.get('geographic_focus'))} as geographic_focus,
+                {calculated_health_score} as financial_health_score,
+                {sql_val(enriched.get('bankruptcy_risk', 'MEDIUM'))} as bankruptcy_risk,
+                {sql_val(enriched.get('recent_news_sentiment', 'NEUTRAL'))} as recent_news_sentiment,
+                'AI_CLAUDE' as enrichment_source,
+                0.85 as enrichment_confidence,
+                CURRENT_TIMESTAMP() as last_enriched_at,
+                NULL as source_urls,
+                CURRENT_TIMESTAMP() as created_at,
+                CURRENT_TIMESTAMP() as updated_at
+        ) AS source
+        ON target.landlord_id = source.landlord_id
+        WHEN MATCHED THEN UPDATE SET
+            target.company_type = source.company_type,
+            target.stock_ticker = source.stock_ticker,
+            target.market_cap = source.market_cap,
+            target.total_assets = source.total_assets,
+            target.credit_rating = source.credit_rating,
+            target.credit_rating_agency = source.credit_rating_agency,
+            target.annual_revenue = source.annual_revenue,
+            target.net_operating_income = source.net_operating_income,
+            target.debt_to_equity_ratio = source.debt_to_equity_ratio,
+            target.total_properties = source.total_properties,
+            target.total_square_footage = source.total_square_footage,
+            target.primary_property_types = source.primary_property_types,
+            target.geographic_focus = source.geographic_focus,
+            target.financial_health_score = source.financial_health_score,
+            target.bankruptcy_risk = source.bankruptcy_risk,
+            target.recent_news_sentiment = source.recent_news_sentiment,
+            target.enrichment_source = source.enrichment_source,
+            target.enrichment_confidence = source.enrichment_confidence,
+            target.last_enriched_at = source.last_enriched_at,
+            target.updated_at = source.updated_at
+        WHEN NOT MATCHED THEN INSERT *
+        """
+        
+        _, error = execute_query(merge_query)
+        
+        if error:
+            print(f"ERROR inserting landlord: {error}")
+            return jsonify({'error': f'Failed to save landlord: {error}'}), 500
+        
+        print(f"Successfully saved landlord: {landlord_id}")
+        return jsonify({
+            'success': True,
+            'message': f'Landlord {landlord_name} saved successfully',
+            'landlord_id': landlord_id
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in validate_landlord_enrichment: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/enrich/validate-tenant', methods=['POST'])
+def validate_tenant_enrichment():
+    """Validate and save enriched tenant data to tenants table"""
+    try:
+        data = request.json
+        tenant_id = data.get('tenant_id')
+        tenant_name = data.get('tenant_name')
+        tenant_address = data.get('tenant_address', '')
+        industry_sector = data.get('industry_sector', '')
+        enriched = data.get('enriched_data', {})
+        
+        if not tenant_id or not tenant_name:
+            return jsonify({'error': 'tenant_id and tenant_name are required'}), 400
+        
+        print(f"Validating tenant enrichment: {tenant_id}")
+        
+        # Calculate deterministic health score
+        calculated_health_score = calculate_tenant_health_score(enriched)
+        print(f"Calculated tenant health score: {calculated_health_score}")
+        
+        def sql_val(val):
+            if val is None:
+                return 'NULL'
+            if isinstance(val, bool):
+                return 'TRUE' if val else 'FALSE'
+            if isinstance(val, (int, float)):
+                return str(val)
+            escaped = str(val).replace("'", "''")
+            return f"'{escaped}'"
+        
+        # Insert/update tenants table
+        merge_query = f"""
+        MERGE INTO {CATALOG}.{SCHEMA}.tenants AS target
+        USING (
+            SELECT 
+                {sql_val(tenant_id)} as tenant_id,
+                {sql_val(tenant_name)} as tenant_name,
+                {sql_val(tenant_address)} as tenant_address,
+                {sql_val(industry_sector)} as industry_sector,
+                {sql_val(enriched.get('company_type'))} as company_type,
+                {sql_val(enriched.get('parent_company'))} as parent_company,
+                {sql_val(enriched.get('stock_ticker'))} as stock_ticker,
+                {enriched.get('founding_year') or 'NULL'} as founding_year,
+                {enriched.get('employee_count') or 'NULL'} as employee_count,
+                {sql_val(enriched.get('headquarters_location'))} as headquarters_location,
+                {enriched.get('market_cap') or 'NULL'} as market_cap,
+                {enriched.get('annual_revenue') or 'NULL'} as annual_revenue,
+                {enriched.get('net_income') or 'NULL'} as net_income,
+                {enriched.get('revenue_growth_pct') or 'NULL'} as revenue_growth_pct,
+                {enriched.get('profit_margin_pct') or 'NULL'} as profit_margin_pct,
+                {sql_val(enriched.get('credit_rating'))} as credit_rating,
+                {sql_val(enriched.get('credit_rating_agency'))} as credit_rating_agency,
+                {sql_val(enriched.get('duns_number'))} as duns_number,
+                {enriched.get('payment_history_score') or 'NULL'} as payment_history_score,
+                {calculated_health_score} as financial_health_score,
+                {sql_val(enriched.get('bankruptcy_risk', 'MEDIUM'))} as bankruptcy_risk,
+                {sql_val(enriched.get('industry_risk', 'MEDIUM'))} as industry_risk,
+                {sql_val(enriched.get('recent_news_sentiment', 'NEUTRAL'))} as recent_news_sentiment,
+                {'TRUE' if enriched.get('litigation_flag') else 'FALSE'} as litigation_flag,
+                {enriched.get('locations_count') or 'NULL'} as locations_count,
+                {enriched.get('years_in_business') or 'NULL'} as years_in_business,
+                'AI_CLAUDE' as enrichment_source,
+                0.85 as enrichment_confidence,
+                CURRENT_TIMESTAMP() as last_enriched_at,
+                NULL as source_urls,
+                CURRENT_TIMESTAMP() as created_at,
+                CURRENT_TIMESTAMP() as updated_at
+        ) AS source
+        ON target.tenant_id = source.tenant_id
+        WHEN MATCHED THEN UPDATE SET
+            target.company_type = source.company_type,
+            target.parent_company = source.parent_company,
+            target.stock_ticker = source.stock_ticker,
+            target.founding_year = source.founding_year,
+            target.employee_count = source.employee_count,
+            target.headquarters_location = source.headquarters_location,
+            target.market_cap = source.market_cap,
+            target.annual_revenue = source.annual_revenue,
+            target.net_income = source.net_income,
+            target.revenue_growth_pct = source.revenue_growth_pct,
+            target.profit_margin_pct = source.profit_margin_pct,
+            target.credit_rating = source.credit_rating,
+            target.credit_rating_agency = source.credit_rating_agency,
+            target.duns_number = source.duns_number,
+            target.payment_history_score = source.payment_history_score,
+            target.financial_health_score = source.financial_health_score,
+            target.bankruptcy_risk = source.bankruptcy_risk,
+            target.industry_risk = source.industry_risk,
+            target.recent_news_sentiment = source.recent_news_sentiment,
+            target.litigation_flag = source.litigation_flag,
+            target.locations_count = source.locations_count,
+            target.years_in_business = source.years_in_business,
+            target.enrichment_source = source.enrichment_source,
+            target.enrichment_confidence = source.enrichment_confidence,
+            target.last_enriched_at = source.last_enriched_at,
+            target.updated_at = source.updated_at
+        WHEN NOT MATCHED THEN INSERT *
+        """
+        
+        _, error = execute_query(merge_query)
+        
+        if error:
+            print(f"ERROR inserting tenant: {error}")
+            return jsonify({'error': f'Failed to save tenant: {error}'}), 500
+        
+        print(f"Successfully saved tenant: {tenant_id}")
+        return jsonify({
+            'success': True,
+            'message': f'Tenant {tenant_name} saved successfully',
+            'tenant_id': tenant_id
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in validate_tenant_enrichment: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/landlords/<landlord_id>', methods=['GET'])
+def get_landlord(landlord_id):
+    """Get landlord data by ID"""
+    try:
+        query = f"""
+        SELECT * FROM {CATALOG}.{SCHEMA}.landlords
+        WHERE landlord_id = '{landlord_id}'
+        """
+        data, error = execute_query(query)
+        if error:
+            return jsonify({'error': error}), 500
+        if not data:
+            return jsonify({'error': 'Landlord not found'}), 404
+        # Return first row as dict (columns would need to be mapped)
+        return jsonify({'success': True, 'data': data[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tenants/<tenant_id>', methods=['GET'])
+def get_tenant(tenant_id):
+    """Get tenant data by ID"""
+    try:
+        query = f"""
+        SELECT * FROM {CATALOG}.{SCHEMA}.tenants
+        WHERE tenant_id = '{tenant_id}'
+        """
+        data, error = execute_query(query)
+        if error:
+            return jsonify({'error': error}), 500
+        if not data:
+            return jsonify({'error': 'Tenant not found'}), 404
+        return jsonify({'success': True, 'data': data[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/portfolio/landlords', methods=['GET'])
+def get_all_landlords():
+    """Get all landlords with their financial profiles"""
+    try:
+        query = f"""
+        SELECT 
+            landlord_id,
+            landlord_name,
+            landlord_address,
+            company_type,
+            stock_ticker,
+            market_cap,
+            total_assets,
+            credit_rating,
+            credit_rating_agency,
+            annual_revenue,
+            net_operating_income,
+            debt_to_equity_ratio,
+            total_properties,
+            total_square_footage,
+            primary_property_types,
+            geographic_focus,
+            financial_health_score,
+            bankruptcy_risk,
+            recent_news_sentiment,
+            enrichment_source,
+            enrichment_confidence,
+            last_enriched_at,
+            created_at
+        FROM {CATALOG}.{SCHEMA}.landlords
+        ORDER BY landlord_name
+        """
+        
+        data, error = execute_query(query)
+        if error:
+            print(f"ERROR in get_all_landlords: {error}")
+            return jsonify({'error': error}), 500
+        
+        landlords = []
+        for row in data:
+            landlords.append({
+                'landlord_id': row[0],
+                'landlord_name': row[1],
+                'landlord_address': row[2],
+                'company_type': row[3],
+                'stock_ticker': row[4],
+                'market_cap': float(row[5]) if row[5] else None,
+                'total_assets': float(row[6]) if row[6] else None,
+                'credit_rating': row[7],
+                'credit_rating_agency': row[8],
+                'annual_revenue': float(row[9]) if row[9] else None,
+                'net_operating_income': float(row[10]) if row[10] else None,
+                'debt_to_equity_ratio': float(row[11]) if row[11] else None,
+                'total_properties': int(row[12]) if row[12] else None,
+                'total_square_footage': float(row[13]) if row[13] else None,
+                'primary_property_types': row[14],
+                'geographic_focus': row[15],
+                'financial_health_score': float(row[16]) if row[16] else None,
+                'bankruptcy_risk': row[17],
+                'recent_news_sentiment': row[18],
+                'enrichment_source': row[19],
+                'enrichment_confidence': float(row[20]) if row[20] else None,
+                'last_enriched_at': str(row[21]) if row[21] else None,
+                'created_at': str(row[22]) if row[22] else None
+            })
+        
+        return jsonify(landlords)
+        
+    except Exception as e:
+        error_msg = f"Exception in get_all_landlords: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/portfolio/tenants', methods=['GET'])
+def get_all_tenants():
+    """Get all tenants with their financial profiles"""
+    try:
+        query = f"""
+        SELECT 
+            tenant_id,
+            tenant_name,
+            tenant_address,
+            industry_sector,
+            company_type,
+            parent_company,
+            stock_ticker,
+            founding_year,
+            employee_count,
+            headquarters_location,
+            market_cap,
+            annual_revenue,
+            net_income,
+            revenue_growth_pct,
+            profit_margin_pct,
+            credit_rating,
+            credit_rating_agency,
+            duns_number,
+            payment_history_score,
+            financial_health_score,
+            bankruptcy_risk,
+            industry_risk,
+            recent_news_sentiment,
+            litigation_flag,
+            locations_count,
+            years_in_business,
+            enrichment_source,
+            enrichment_confidence,
+            last_enriched_at,
+            created_at
+        FROM {CATALOG}.{SCHEMA}.tenants
+        ORDER BY tenant_name
+        """
+        
+        data, error = execute_query(query)
+        if error:
+            print(f"ERROR in get_all_tenants: {error}")
+            return jsonify({'error': error}), 500
+        
+        tenants = []
+        for row in data:
+            tenants.append({
+                'tenant_id': row[0],
+                'tenant_name': row[1],
+                'tenant_address': row[2],
+                'industry_sector': row[3],
+                'company_type': row[4],
+                'parent_company': row[5],
+                'stock_ticker': row[6],
+                'founding_year': int(row[7]) if row[7] else None,
+                'employee_count': int(row[8]) if row[8] else None,
+                'headquarters_location': row[9],
+                'market_cap': float(row[10]) if row[10] else None,
+                'annual_revenue': float(row[11]) if row[11] else None,
+                'net_income': float(row[12]) if row[12] else None,
+                'revenue_growth_pct': float(row[13]) if row[13] else None,
+                'profit_margin_pct': float(row[14]) if row[14] else None,
+                'credit_rating': row[15],
+                'credit_rating_agency': row[16],
+                'duns_number': row[17],
+                'payment_history_score': float(row[18]) if row[18] else None,
+                'financial_health_score': float(row[19]) if row[19] else None,
+                'bankruptcy_risk': row[20],
+                'industry_risk': row[21],
+                'recent_news_sentiment': row[22],
+                'litigation_flag': bool(row[23]) if row[23] is not None else None,
+                'locations_count': int(row[24]) if row[24] else None,
+                'years_in_business': int(row[25]) if row[25] else None,
+                'enrichment_source': row[26],
+                'enrichment_confidence': float(row[27]) if row[27] else None,
+                'last_enriched_at': str(row[28]) if row[28] else None,
+                'created_at': str(row[29]) if row[29] else None
+            })
+        
+        return jsonify(tenants)
+        
+    except Exception as e:
+        error_msg = f"Exception in get_all_tenants: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
