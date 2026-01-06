@@ -2,8 +2,9 @@
 # Documentation: https://docs.databricks.com/en/dev-tools/databricks-apps/index.html
 
 command:
-  - "python"
-  - "backend/api.py"
+  - "/bin/bash"
+  - "-c"
+  - "pip install -r requirements.txt && python backend/api.py"
 
 # Environment variables for the application
 env:
