@@ -110,20 +110,20 @@ const Upload = () => {
       setProcessingStage(1);
       
       // Poll for processing completion
-      // Upload: ~2 sec, Parsing: ~1 min, Extraction: ~2-4 min = ~5-7 mins total
+      // Upload: ~2 sec, Parsing: ~1-2 min, Extraction: ~2-4 min = ~7.5 mins total timeout
       const checkProcessing = async () => {
-        const maxAttempts = 90; // Check for up to ~7.5 minutes (increased for AI extraction)
+        const maxAttempts = 90; // Check for up to ~7.5 minutes (90 * 5 sec)
         const pollInterval = 5000; // Check every 5 seconds
         
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           // Update stage display based on time elapsed
           // Stage 1: Uploading (0-6 attempts = 0-30 sec)
-          // Stage 2: Parsing (6-24 attempts = 30-120 sec) 
-          // Stage 3: Extracting (24-75 attempts = 120-375 sec = 2-6 min)
-          // Stage 4: Validating (75+ attempts = 375+ sec)
+          // Stage 2: Parsing (6-30 attempts = 30 sec - 2.5 min)
+          // Stage 3: Extracting (30-78 attempts = 2.5 min - 6.5 min)
+          // Stage 4: Validating (78-90 attempts = 6.5-7.5 min)
           if (attempt < 6) setProcessingStage(1);
-          else if (attempt < 24) setProcessingStage(2);
-          else if (attempt < 75) setProcessingStage(3);
+          else if (attempt < 30) setProcessingStage(2);
+          else if (attempt < 78) setProcessingStage(3);
           else setProcessingStage(4);
           
           try {
@@ -143,7 +143,7 @@ const Upload = () => {
             
             // If response indicates still processing (not an error)
             if (!processResult.processed && !processResult.error) {
-              console.log(`Check attempt ${attempt + 1}: Still processing...`);
+              console.log(`Check attempt ${attempt + 1}/${maxAttempts}: Still processing... (${Math.floor(attempt * 5 / 60)} min elapsed)`);
             } else if (processResult.error) {
               // Only log errors, don't fail - might be transient
               console.log(`Check attempt ${attempt + 1}: API error (continuing): ${processResult.error}`);
@@ -158,10 +158,10 @@ const Upload = () => {
           }
         }
         
-        // Timeout after all attempts
-        console.log('Processing timeout reached');
+        // Timeout after all attempts (7.5 minutes)
+        console.log('Processing timeout reached after 7.5 minutes');
         setIsTimeout(true);
-        setError('AI extraction is taking longer than expected (>7 minutes). Your file was uploaded successfully and extraction may still be running. Please check the "Validate Extracted Records" section below in a few minutes to review and validate the data.');
+        setError('AI extraction is taking longer than expected (>7 minutes). Your file was uploaded successfully and extraction may still be running. Please check the "Validate Extracted Records" section below to review and validate the data when ready.');
         setUploadState('timeout_with_validation');
         
         // Refresh the NEW records list so user can validate when ready

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
@@ -15,7 +15,10 @@ DATABRICKS_HOST = os.getenv('DATABRICKS_HOST', '').rstrip('/')
 DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN')
 CLAUDE_ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/databricks-claude-sonnet-4-5/invocations"
 
-app = Flask(__name__)
+# Static files directory for serving React build
+STATIC_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build')
+
+app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 CORS(app)
 
 # Configuration
@@ -321,6 +324,14 @@ def execute_query(query):
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'message': 'API is running'})
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Metrics endpoint for Databricks Apps monitoring"""
+    return '', 200
+
+
 
 @app.route('/api/portfolio/kpis', methods=['GET'])
 def get_portfolio_kpis():
@@ -2075,6 +2086,42 @@ def get_all_tenants():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================================
+# STATIC FILE SERVING (must be at the end, after all API routes)
+# ============================================================
+
+# Serve React app for root path
+@app.route('/')
+def serve_react_app():
+    """Serve the React application"""
+    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
+        return send_from_directory(STATIC_FOLDER, 'index.html')
+    return jsonify({'message': 'React build not found. Run npm build in FrontEndV2 directory.'}), 404
+
+
+# Catch-all route to serve React app for client-side routing
+# This MUST be defined after all API routes to avoid intercepting them
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files or fall back to index.html for React Router"""
+    # Skip API routes - they should be handled by their own endpoints
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    # First try to serve the file directly
+    static_file_path = os.path.join(STATIC_FOLDER, path)
+    if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
+        return send_from_directory(STATIC_FOLDER, path)
+    # Fall back to index.html for React Router
+    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
+        return send_from_directory(STATIC_FOLDER, 'index.html')
+    return jsonify({'error': 'Not found'}), 404
+
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    # Use DATABRICKS_APP_PORT or PORT environment variable for Databricks Apps deployment
+    # Falls back to 5001 for local development
+    port = int(os.getenv('DATABRICKS_APP_PORT', os.getenv('PORT', 5001)))
+    debug = os.getenv('FLASK_DEBUG', '1') == '1'
+    print(f"Starting server on port {port}")
+    app.run(debug=debug, host='0.0.0.0', port=port)
 

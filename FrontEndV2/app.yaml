@@ -1,0 +1,35 @@
+# Databricks App Configuration for Lease Extraction Application
+# Documentation: https://docs.databricks.com/en/dev-tools/databricks-apps/index.html
+
+command:
+  - "/bin/bash"
+  - "-c"
+  - "pip install -r requirements.txt && python backend/api.py"
+
+# Environment variables for the application
+env:
+  - name: FLASK_ENV
+    value: "production"
+  - name: FLASK_DEBUG
+    value: "0"
+  - name: PORT
+    value: "8080"
+  # Databricks catalog and schema configuration
+  - name: DATABRICKS_CATALOG
+    value: "fins_team_3"
+  - name: DATABRICKS_SCHEMA
+    value: "lease_management"
+  - name: DATABRICKS_VOLUME
+    value: "raw_lease_docs"
+
+# Resources that the app needs access to
+resources:
+  # SQL Warehouse for query execution
+  - name: sql-warehouse
+    sql_warehouse:
+      permission: CAN_USE
+  # Serving endpoint for Claude AI (used for MCP enrichment)
+  - name: claude-endpoint
+    serving_endpoint:
+      name: databricks-claude-sonnet-4-5
+      permission: CAN_QUERY
