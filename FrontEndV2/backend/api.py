@@ -327,19 +327,38 @@ def get_portfolio_kpis():
     """Get overall portfolio KPIs from silver layer (verified leases only)"""
     try:
         query = f"""
+        WITH base_kpis AS (
+            SELECT 
+                COUNT(*) as total_leases,
+                COUNT(DISTINCT COALESCE(property_id, 'Unknown')) as total_properties,
+                COUNT(DISTINCT tenant_name) as total_tenants,
+                COUNT(DISTINCT COALESCE(industry_sector, 'Unknown')) as markets_count,
+                AVG(base_rent_psf) as avg_rent_psf,
+                AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt,
+                0 as total_exit_risk,
+                0 as total_rofr,
+                SUM(CASE WHEN DATEDIFF(lease_end_date, CURRENT_DATE()) <= 365 AND DATEDIFF(lease_end_date, CURRENT_DATE()) >= 0 THEN 1 ELSE 0 END) as expiring_12_months
+            FROM {CATALOG}.{SCHEMA}.silver_leases
+            WHERE tenant_name IS NOT NULL
+        ),
+        risk_kpis AS (
+            SELECT 
+                AVG(total_risk_score) as avg_risk_score
+            FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
+        )
         SELECT 
-            COUNT(*) as total_leases,
-            COUNT(DISTINCT COALESCE(property_id, 'Unknown')) as total_properties,
-            COUNT(DISTINCT tenant_name) as total_tenants,
-            COUNT(DISTINCT COALESCE(industry_sector, 'Unknown')) as markets_count,
-            AVG(base_rent_psf) as avg_rent_psf,
-            AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt,
-            0 as total_exit_risk,
-            0 as total_rofr,
-            5.0 as avg_risk_score,
-            SUM(CASE WHEN DATEDIFF(lease_end_date, CURRENT_DATE()) <= 365 AND DATEDIFF(lease_end_date, CURRENT_DATE()) >= 0 THEN 1 ELSE 0 END) as expiring_12_months
-        FROM {CATALOG}.{SCHEMA}.silver_leases
-        WHERE tenant_name IS NOT NULL
+            b.total_leases,
+            b.total_properties,
+            b.total_tenants,
+            b.markets_count,
+            b.avg_rent_psf,
+            b.portfolio_walt,
+            b.total_exit_risk,
+            b.total_rofr,
+            COALESCE(r.avg_risk_score, 0) as avg_risk_score,
+            b.expiring_12_months
+        FROM base_kpis b
+        CROSS JOIN risk_kpis r
         """
         
         data, error = execute_query(query)

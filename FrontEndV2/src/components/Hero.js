@@ -1,30 +1,34 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiBarChart2, 
   FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers, FiSearch
 } from 'react-icons/fi';
 import './Hero.css';
 
-const Hero = () => {
+const Hero = ({ onNavigate }) => {
+  const [activeModal, setActiveModal] = useState(null);
   const pipelineStages = [
     {
       icon: FiUploadCloud,
       title: 'Upload Lease',
       description: 'Secure document upload to Databricks Unity Catalog Volume',
-      color: '#FF3621'
+      color: '#FF3621',
+      modal: 'upload'
     },
     {
       icon: FiCpu,
       title: 'AI Parser',
       description: 'Advanced ML models extract text and structure',
-      color: '#8B4513'
+      color: '#8B4513',
+      modal: 'parser'
     },
     {
       icon: FiZap,
       title: 'Agent Extraction',
       description: 'AI agents identify critical lease fields',
-      color: '#FF3621'
+      color: '#FF3621',
+      modal: 'agent'
     },
     {
       icon: FiCheckCircle,
@@ -38,6 +42,25 @@ const Hero = () => {
       description: 'Claude AI enriches financial profiles',
       color: '#00A67E'
     }
+  ];
+
+  const extractionSchema = {
+    "landlord": { "name": "string", "address": "string" },
+    "tenant": { "name": "string", "address": "string", "industry_sector": "string" },
+    "property_location": { "full_address": "string", "city": "string", "state": "string", "zip_code": "string" },
+    "lease_details": { "commencement_date": "date", "expiration_date": "date", "term_months": "integer", "rentable_square_feet": "integer" },
+    "financial_terms": { "annual_base_rent": "integer", "monthly_base_rent": "number", "base_rent_psf": "number", "annual_escalation_pct": "integer" },
+    "risk_and_options": { "renewal_options": "string", "renewal_notice_days": "integer", "termination_rights": "string" }
+  };
+
+  const supportedFormats = [
+    { ext: 'PDF', desc: 'Portable Document Format - Standard lease documents', icon: FiFileText, color: '#FF3621' },
+    { ext: 'DOCX', desc: 'Microsoft Word - Editable lease documents', icon: FiFile, color: '#2B579A' },
+    { ext: 'DOC', desc: 'Legacy Word documents', icon: FiFile, color: '#2B579A' },
+    { ext: 'TXT', desc: 'Plain text files', icon: FiFileText, color: '#6B6B6B' },
+    { ext: 'PNG', desc: 'Image scans with OCR capability', icon: FiImage, color: '#8B4513' },
+    { ext: 'JPG', desc: 'JPEG image scans with OCR', icon: FiImage, color: '#8B4513' },
+    { ext: 'TIFF', desc: 'High-quality scanned documents', icon: FiImage, color: '#8B4513' }
   ];
 
   const capabilities = [
@@ -87,11 +110,11 @@ const Hero = () => {
         </p>
 
         <div className="hero-cta">
-          <button className="cta-primary">
+          <button className="cta-primary" onClick={() => onNavigate('upload')}>
             <FiUploadCloud size={20} />
             Start Extracting
           </button>
-          <button className="cta-secondary">
+          <button className="cta-secondary" onClick={() => onNavigate('portfolio')}>
             <FiBarChart2 size={20} />
             View Dashboard
           </button>
@@ -154,6 +177,8 @@ const Hero = () => {
                     y: -10,
                     transition: { duration: 0.3 }
                   }}
+                  onClick={() => setActiveModal(stage.modal)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {/* Animated glow background */}
                   <motion.div 
@@ -406,6 +431,271 @@ const Hero = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div 
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveModal(null)}
+          >
+            <motion.div 
+              className="modal-content futuristic-modal"
+              initial={{ scale: 0.8, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: 50, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}>
+                <FiX size={24} />
+              </button>
+
+              <div className="modal-scroll-content">
+              {activeModal === 'upload' && (
+                <div className="modal-body">
+                  <div className="modal-header">
+                    <FiUploadCloud size={48} color="#FF3621" />
+                    <h2>Document Upload System</h2>
+                    <p className="modal-subtitle">Multi-format lease document ingestion</p>
+                  </div>
+                  
+                  <div className="tech-grid">
+                    <div className="tech-info-card">
+                      <FiDatabase size={32} color="#FF3621" />
+                      <h3>Unity Catalog Volume</h3>
+                      <p>Secure storage in Databricks</p>
+                    </div>
+                    <div className="tech-info-card">
+                      <FiShield size={32} color="#8B4513" />
+                      <h3>Encrypted Transfer</h3>
+                      <p>End-to-end TLS encryption</p>
+                    </div>
+                  </div>
+
+                  <div className="formats-section">
+                    <h3 className="formats-title">
+                      <FiFileText size={24} color="#FF3621" />
+                      Supported Formats
+                    </h3>
+                    <div className="formats-grid">
+                      {supportedFormats.map((format, idx) => {
+                        const IconComponent = format.icon;
+                        return (
+                          <motion.div 
+                            key={idx}
+                            className="format-card"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                          >
+                            <div className="format-icon" style={{ color: format.color }}>
+                              <IconComponent size={32} />
+                            </div>
+                            <div className="format-info">
+                              <strong className="format-ext">.{format.ext}</strong>
+                              <p className="format-desc">{format.desc}</p>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="modal-cta">
+                    <button className="modal-button primary" onClick={() => {
+                      setActiveModal(null);
+                      onNavigate('upload');
+                    }}>
+                      <FiUploadCloud size={20} />
+                      Start Upload
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === 'parser' && (
+                <div className="modal-body">
+                  <div className="modal-header">
+                    <FiCpu size={48} color="#8B4513" />
+                    <h2>AI Document Parser</h2>
+                    <p className="modal-subtitle">Advanced text extraction & structuring pipeline</p>
+                  </div>
+
+                  <div className="code-showcase">
+                    <div className="code-header">
+                      <span className="code-label">Document Processing Pipeline</span>
+                      <span className="code-lang">Python • Databricks</span>
+                    </div>
+                    <pre className="code-block">
+{`def process_lease_document(file_path):
+    """
+    AI-powered lease document extraction
+    Uses Databricks Foundation Models
+    """
+    
+    # 1. Load document from Unity Catalog
+    document = load_from_volume(file_path)
+    
+    # 2. OCR & Text Extraction
+    text = extract_text_with_ocr(document)
+    
+    # 3. Document Structure Analysis
+    structure = analyze_document_structure(text)
+    
+    # 4. Entity Recognition (NER)
+    entities = extract_entities(text, structure)
+    
+    # 5. Field Classification
+    fields = classify_lease_fields(entities)
+    
+    # 6. Write to Bronze Layer
+    write_to_bronze_table(fields)
+    
+    return {
+        "status": "success",
+        "accuracy": 0.992,
+        "fields_extracted": len(fields)
+    }`}
+                    </pre>
+                  </div>
+
+                  <div className="tech-grid">
+                    <div className="tech-info-card">
+                      <FiCpu size={28} color="#8B4513" />
+                      <h4>ML Models</h4>
+                      <p>BERT, GPT-4, Custom NER</p>
+                    </div>
+                    <div className="tech-info-card">
+                      <FiTrendingUp size={28} color="#FF3621" />
+                      <h4>99.2% Accuracy</h4>
+                      <p>Validated extraction rate</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === 'agent' && (
+                <div className="modal-body">
+                  <div className="modal-header">
+                    <FiZap size={48} color="#FF3621" />
+                    <h2>Agent Extraction Schema</h2>
+                    <p className="modal-subtitle">Structured data extraction framework</p>
+                  </div>
+
+                  <div className="schema-section">
+                    <h3 className="schema-title">Target Fields</h3>
+                    <div className="schema-grid">
+                      {Object.entries(extractionSchema).map(([key, value], idx) => (
+                        <motion.div 
+                          key={key}
+                          className="schema-card"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.08 }}
+                        >
+                          <div className="schema-key">{key}</div>
+                          <div className="schema-fields">
+                            {Object.entries(value).map(([field, type]) => (
+                              <div key={field} className="schema-field">
+                                <span className="field-name">{field}</span>
+                                <span className="field-type">{type}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="agent-stats">
+                    <div className="stat-item">
+                      <div className="stat-value">28</div>
+                      <div className="stat-label">Total Fields</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">6</div>
+                      <div className="stat-label">Categories</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">~2min</div>
+                      <div className="stat-label">Avg Extract Time</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeModal === 'validation' && (
+                <div className="modal-body">
+                  <div className="modal-header">
+                    <FiCheckCircle size={48} color="#6B6B6B" />
+                    <h2>Human-in-the-Loop Validation</h2>
+                    <p className="modal-subtitle">Expert review & correction workflow</p>
+                  </div>
+
+                  <div className="validation-flow">
+                    <div className="flow-step">
+                      <div className="step-number">1</div>
+                      <div className="step-content">
+                        <h4>Review Extracted Data</h4>
+                        <p>AI presents extracted fields with confidence scores</p>
+                      </div>
+                    </div>
+                    <div className="flow-arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="step-number">2</div>
+                      <div className="step-content">
+                        <h4>Flag & Correct Errors</h4>
+                        <p>Annotators fix inaccuracies and add missing data</p>
+                      </div>
+                    </div>
+                    <div className="flow-arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="step-number">3</div>
+                      <div className="step-content">
+                        <h4>Approve & Promote</h4>
+                        <p>Validated data moves from Bronze → Silver layer</p>
+                      </div>
+                    </div>
+                    <div className="flow-arrow-down">↓</div>
+                    <div className="flow-step">
+                      <div className="step-number">4</div>
+                      <div className="step-content">
+                        <h4>Model Improvement</h4>
+                        <p>Corrections feed back into training pipeline</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="validation-benefits">
+                    <h4>Why Human Validation?</h4>
+                    <ul>
+                      <li>✓ Catches edge cases AI might miss</li>
+                      <li>✓ Ensures legal accuracy for critical terms</li>
+                      <li>✓ Adds domain expertise and context</li>
+                      <li>✓ Continuously improves AI performance</li>
+                    </ul>
+                  </div>
+
+                  <div className="modal-cta">
+                    <button className="modal-button primary" onClick={() => {
+                      setActiveModal(null);
+                      onNavigate('upload');
+                    }}>
+                      <FiCheckCircle size={20} />
+                      Go to Validation
+                    </button>
+                  </div>
+                </div>
+              )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
