@@ -4,6 +4,7 @@ import Hero from './components/Hero';
 import Portfolio from './components/Portfolio';
 import Chat from './components/Chat';
 import Upload from './components/Upload';
+import Forecasting from './components/Forecasting';
 
 function App() {
   const [activeView, setActiveView] = useState('home');
@@ -41,14 +42,21 @@ function App() {
             >
               Upload & Validate
             </button>
+            <button 
+              className={activeView === 'forecasting' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setActiveView('forecasting')}
+            >
+              Forecasting
+            </button>
           </div>
         </div>
       </nav>
 
-      {activeView === 'home' && <Hero />}
+      {activeView === 'home' && <Hero onNavigate={setActiveView} />}
       {activeView === 'portfolio' && <Portfolio />}
       {activeView === 'chat' && <Chat />}
       {activeView === 'upload' && <Upload />}
+      {activeView === 'forecasting' && <Forecasting />}
     </div>
   );
 }

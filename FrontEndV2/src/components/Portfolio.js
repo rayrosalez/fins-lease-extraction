@@ -52,7 +52,7 @@ const Portfolio = () => {
     { label: 'Total Leases', value: kpis.total_leases.toLocaleString(), change: `${kpis.expiring_12_months} expiring in 12mo` },
     { label: 'Avg. Rent PSF', value: `$${kpis.avg_rent_psf.toFixed(2)}`, change: `${kpis.total_properties} properties` },
     { label: 'Portfolio WALT', value: `${kpis.portfolio_walt.toFixed(1)} yrs`, change: `${kpis.markets_count} markets` },
-    { label: 'Avg. Risk Score', value: kpis.avg_risk_score.toFixed(1), change: `${kpis.total_tenants} tenants` },
+    { label: 'Avg. Risk Score', value: `${kpis.avg_risk_score.toFixed(1)}/100`, change: `${kpis.total_tenants} tenants` },
   ] : [
     { label: 'Total Leases', value: '-', change: 'Loading...' },
     { label: 'Avg. Rent PSF', value: '-', change: 'Loading...' },
