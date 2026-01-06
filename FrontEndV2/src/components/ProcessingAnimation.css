@@ -77,12 +77,12 @@
 
 .spinner-ring {
   border-top-color: #FF3621;
-  border-right-color: #8B4513;
+  border-right-color: #FF3621;
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
 .spinner-ring-inner {
-  border-bottom-color: #6B6B6B;
+  border-bottom-color: rgba(255, 54, 33, 0.5);
   border-left-color: #FF3621;
   width: 80%;
   height: 80%;

@@ -27,41 +27,43 @@ const ProcessingAnimation = ({ stage }) => {
     setParticles(particleArray);
   }, []);
 
+  // Color scheme: red (incomplete) -> yellow (processing) -> green (complete)
+  const getStageColor = (stageId) => {
+    if (stage > stageId) return '#22c55e'; // Green - complete
+    if (stage === stageId) return '#f59e0b'; // Yellow/Amber - processing
+    return '#FF3621'; // Red - incomplete/pending
+  };
+
   const stages = [
     {
       id: 1,
       title: 'Uploading to Volume',
       description: 'Securely transferring document to Databricks Unity Catalog',
-      icon: FiUploadCloud,
-      color: '#FF3621'
+      icon: FiUploadCloud
     },
     {
       id: 2,
       title: 'AI Document Parser',
       description: 'Advanced ML models extracting text and structure from PDF',
-      icon: FiCpu,
-      color: '#8B4513'
+      icon: FiCpu
     },
     {
       id: 3,
       title: 'Agent Extraction',
       description: 'AI agents identifying lease terms, dates, and financial details',
-      icon: FiZap,
-      color: '#FF3621'
+      icon: FiZap
     },
     {
       id: 4,
       title: 'Data Validation',
       description: 'Structuring data and preparing for your review',
-      icon: FiCheckCircle,
-      color: '#6B6B6B'
+      icon: FiCheckCircle
     },
     {
       id: 5,
       title: 'AI Enrichment',
       description: 'Claude AI enriching landlord & tenant financial profiles',
-      icon: FiTrendingUp,
-      color: '#00A67E'
+      icon: FiTrendingUp
     }
   ];
 
@@ -73,8 +75,8 @@ const ProcessingAnimation = ({ stage }) => {
           <defs>
             <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#FF3621" stopOpacity="0.6" />
-              <stop offset="50%" stopColor="#8B4513" stopOpacity="0.4" />
-              <stop offset="100%" stopColor="#6B6B6B" stopOpacity="0.2" />
+              <stop offset="50%" stopColor="#FF3621" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#FF3621" stopOpacity="0.2" />
             </linearGradient>
             <filter id="glow">
               <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
@@ -160,7 +162,7 @@ const ProcessingAnimation = ({ stage }) => {
           >
             <div className="vector-bar" style={{ 
               height: `${20 + Math.random() * 40}px`,
-              background: i % 3 === 0 ? '#FF3621' : i % 3 === 1 ? '#8B4513' : '#6B6B6B'
+              background: i % 2 === 0 ? '#FF3621' : 'rgba(255, 54, 33, 0.6)'
             }} />
           </motion.div>
         ))}
@@ -182,6 +184,7 @@ const ProcessingAnimation = ({ stage }) => {
       <div className="pipeline-visualization">
         {stages.map((stageInfo, index) => {
           const IconComponent = stageInfo.icon;
+          const stageColor = getStageColor(stageInfo.id);
           return (
             <motion.div
               key={stageInfo.id}
@@ -197,7 +200,7 @@ const ProcessingAnimation = ({ stage }) => {
                     initial={{ scaleX: 0 }}
                     animate={{ scaleX: stage > stageInfo.id ? 1 : 0 }}
                     transition={{ duration: 0.5 }}
-                    style={{ backgroundColor: stageInfo.color }}
+                    style={{ backgroundColor: '#22c55e' }}
                   />
                 )}
               </div>
@@ -206,18 +209,18 @@ const ProcessingAnimation = ({ stage }) => {
                 <div 
                   className="stage-icon"
                   style={{ 
-                    backgroundColor: stage >= stageInfo.id ? `${stageInfo.color}15` : 'rgba(255,255,255,0.05)',
-                    borderColor: stage >= stageInfo.id ? stageInfo.color : 'rgba(255,255,255,0.1)'
+                    backgroundColor: `${stageColor}15`,
+                    borderColor: stageColor
                   }}
                 >
                   <IconComponent 
                     size={32} 
-                    color={stage >= stageInfo.id ? stageInfo.color : 'rgba(255,255,255,0.3)'}
+                    color={stageColor}
                   />
                 </div>
                 
                 <div className="stage-details">
-                  <h3 className="stage-title" style={{ color: stage >= stageInfo.id ? stageInfo.color : 'rgba(255,255,255,0.5)' }}>
+                  <h3 className="stage-title" style={{ color: stageColor }}>
                     {stageInfo.title}
                   </h3>
                   <p className="stage-description">{stageInfo.description}</p>
@@ -229,12 +232,12 @@ const ProcessingAnimation = ({ stage }) => {
                       animate={{ width: '100%' }}
                       transition={{ duration: 2, repeat: Infinity }}
                     >
-                      <div className="progress-bar" style={{ backgroundColor: stageInfo.color }}></div>
+                      <div className="progress-bar" style={{ backgroundColor: stageColor }}></div>
                     </motion.div>
                   )}
                   
                   {stage > stageInfo.id && (
-                    <div className="stage-complete" style={{ color: stageInfo.color }}>
+                    <div className="stage-complete" style={{ color: stageColor }}>
                       <FiCheckCircle size={16} style={{ marginRight: '0.5rem' }} />
                       Complete
                     </div>
@@ -255,14 +258,14 @@ const ProcessingAnimation = ({ stage }) => {
           </div>
         </div>
         <div className="stat-box">
-          <FiTarget size={24} color="#8B4513" />
+          <FiTarget size={24} color="#FF3621" />
           <div className="stat-info">
             <div className="stat-label">Accuracy</div>
             <div className="stat-value">99.2%</div>
           </div>
         </div>
         <div className="stat-box">
-          <FiShield size={24} color="#6B6B6B" />
+          <FiShield size={24} color="#FF3621" />
           <div className="stat-info">
             <div className="stat-label">Security</div>
             <div className="stat-value">Encrypted</div>
