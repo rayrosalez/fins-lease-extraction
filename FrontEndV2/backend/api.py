@@ -332,27 +332,6 @@ def metrics():
     return '', 200
 
 
-# Serve React app for root path
-@app.route('/')
-def serve_react_app():
-    """Serve the React application"""
-    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
-        return send_from_directory(STATIC_FOLDER, 'index.html')
-    return jsonify({'message': 'React build not found. Run npm build in FrontEndV2 directory.'}), 404
-
-
-# Catch-all route to serve React app for client-side routing
-@app.route('/<path:path>')
-def serve_static(path):
-    """Serve static files or fall back to index.html for React Router"""
-    # First try to serve the file directly
-    file_path = os.path.join(STATIC_FOLDER, path)
-    if os.path.exists(file_path) and os.path.isfile(file_path):
-        return send_from_directory(STATIC_FOLDER, path)
-    # Fall back to index.html for React Router
-    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
-        return send_from_directory(STATIC_FOLDER, 'index.html')
-    return jsonify({'error': 'Not found'}), 404
 
 @app.route('/api/portfolio/kpis', methods=['GET'])
 def get_portfolio_kpis():
@@ -2105,6 +2084,37 @@ def get_all_tenants():
         error_msg = f"Exception in get_all_tenants: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
+# STATIC FILE SERVING (must be at the end, after all API routes)
+# ============================================================
+
+# Serve React app for root path
+@app.route('/')
+def serve_react_app():
+    """Serve the React application"""
+    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
+        return send_from_directory(STATIC_FOLDER, 'index.html')
+    return jsonify({'message': 'React build not found. Run npm build in FrontEndV2 directory.'}), 404
+
+
+# Catch-all route to serve React app for client-side routing
+# This MUST be defined after all API routes to avoid intercepting them
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files or fall back to index.html for React Router"""
+    # Skip API routes - they should be handled by their own endpoints
+    if path.startswith('api/'):
+        return jsonify({'error': 'API endpoint not found'}), 404
+    # First try to serve the file directly
+    static_file_path = os.path.join(STATIC_FOLDER, path)
+    if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
+        return send_from_directory(STATIC_FOLDER, path)
+    # Fall back to index.html for React Router
+    if os.path.exists(os.path.join(STATIC_FOLDER, 'index.html')):
+        return send_from_directory(STATIC_FOLDER, 'index.html')
+    return jsonify({'error': 'Not found'}), 404
 
 
 if __name__ == '__main__':
