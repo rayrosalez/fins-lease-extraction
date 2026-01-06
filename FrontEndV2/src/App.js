@@ -45,7 +45,7 @@ function App() {
         </div>
       </nav>
 
-      {activeView === 'home' && <Hero />}
+      {activeView === 'home' && <Hero onNavigate={setActiveView} />}
       {activeView === 'portfolio' && <Portfolio />}
       {activeView === 'chat' && <Chat />}
       {activeView === 'upload' && <Upload />}
