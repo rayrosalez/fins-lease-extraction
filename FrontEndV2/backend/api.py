@@ -326,6 +326,12 @@ def health_check():
     return jsonify({'status': 'healthy', 'message': 'API is running'})
 
 
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    """Metrics endpoint for Databricks Apps monitoring"""
+    return '', 200
+
+
 # Serve React app for root path
 @app.route('/')
 def serve_react_app():
