@@ -1,4 +1,4 @@
-# FINS Lease Extraction Platform (FrontEndV2)
+# FINS Lease Extraction Platform
 
 A modern React-based lease extraction platform powered by Databricks, featuring AI-powered document processing, real-time analytics, and intelligent chat interface.
 
@@ -43,7 +43,7 @@ A modern React-based lease extraction platform powered by Databricks, featuring 
 
 #### 1. Install Frontend Dependencies
 ```bash
-cd FrontEndV2
+cd app
 npm install
 ```
 
@@ -67,7 +67,7 @@ python api.py
 
 **Terminal 2 - React Frontend:**
 ```bash
-cd FrontEndV2
+cd app
 npm start
 # Opens http://localhost:3000
 ```
@@ -79,7 +79,7 @@ npm start
 ## 🗂️ Project Structure
 
 ```
-FrontEndV2/
+app/
 ├── backend/                   # Flask API for Databricks
 │   ├── api.py                # REST API endpoints
 │   ├── utils.py              # Volume upload utilities

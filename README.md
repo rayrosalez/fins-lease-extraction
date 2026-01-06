@@ -9,8 +9,8 @@ This system automates the extraction of critical data from commercial real estat
 ## 📁 Project Structure
 
 ```
-fins-lease-extraction-temp/
-├── FrontEndV2/              # React frontend application
+fins-lease-extraction/
+├── app/                     # React frontend + Flask backend
 │   ├── src/                 # React components
 │   └── backend/             # Flask API server
 ├── DatabricksResources/     # Databricks SQL scripts and configurations
@@ -29,7 +29,7 @@ fins-lease-extraction-temp/
 ### 1. Backend Setup
 
 ```bash
-cd FrontEndV2/backend
+cd app/backend
 
 # Create .env file with your credentials
 cat > .env << EOF
@@ -50,7 +50,7 @@ Backend runs on http://localhost:5001
 ### 2. Frontend Setup
 
 ```bash
-cd FrontEndV2
+cd app
 
 # Install dependencies
 npm install
@@ -123,9 +123,9 @@ Gold Layer     → Risk scores and analytics
 
 ## 📚 Component Documentation
 
-- **[FrontEndV2/README.md](FrontEndV2/README.md)** - Frontend application setup and architecture
-- **[FrontEndV2/backend/README.md](FrontEndV2/backend/README.md)** - API endpoints and Databricks integration
-- **[FrontEndV2/RISK_TROUBLESHOOTING.md](FrontEndV2/RISK_TROUBLESHOOTING.md)** - Risk assessment debugging guide
+- **[app/README.md](app/README.md)** - Frontend application setup and architecture
+- **[app/backend/README.md](app/backend/README.md)** - API endpoints and Databricks integration
+- **[app/RISK_TROUBLESHOOTING.md](app/RISK_TROUBLESHOOTING.md)** - Risk assessment debugging guide
 - **[LeaseGeneration/README.md](LeaseGeneration/README.md)** - Synthetic lease PDF generator
 - **[DataGeneration/README.md](DataGeneration/README.md)** - Test data generation utilities
 
@@ -198,7 +198,7 @@ Upload generated PDFs through the web interface to test the full pipeline.
 1. Ensure `gold_lease_risk_scores` view exists
 2. Verify data in `silver_leases` table
 3. Check browser console for detailed errors
-4. See [RISK_TROUBLESHOOTING.md](FrontEndV2/RISK_TROUBLESHOOTING.md)
+4. See [RISK_TROUBLESHOOTING.md](app/RISK_TROUBLESHOOTING.md)
 
 ### Upload Issues
 1. Check volume permissions in Databricks
