@@ -34,7 +34,7 @@ const Upload = () => {
   const fetchNewRecords = async () => {
     setRefreshing(true);
     try {
-      const response = await fetch('http://localhost:5001/api/records/new');
+      const response = await fetch('/api/records/new');
       const data = await response.json();
       
       if (response.ok) {
@@ -88,7 +88,7 @@ const Upload = () => {
 
     try {
       // Upload file to Databricks volume
-      const response = await fetch('http://localhost:5001/api/upload', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData
       });
@@ -128,7 +128,7 @@ const Upload = () => {
           
           try {
             const checkResponse = await fetch(
-              `http://localhost:5001/api/check-processing/${encodeURIComponent(result.file_path)}`
+              `/api/check-processing/${encodeURIComponent(result.file_path)}`
             );
             
             const processResult = await checkResponse.json();
@@ -183,7 +183,7 @@ const Upload = () => {
       console.log('Submitting validated data:', validatedData);
       
       // Send validated data to API
-      const response = await fetch('http://localhost:5001/api/validate-record', {
+      const response = await fetch('/api/validate-record', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -323,7 +323,7 @@ const Upload = () => {
         };
       });
 
-      const response = await fetch('http://localhost:5001/api/records/validate-multiple', {
+      const response = await fetch('/api/records/validate-multiple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -379,7 +379,7 @@ const Upload = () => {
     setValidationMessage(null);
 
     try {
-      const response = await fetch('http://localhost:5001/api/records/delete', {
+      const response = await fetch('/api/records/delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi';
 import './EnrichmentValidation.css';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = '/api';
 
 const EnrichmentValidation = ({ leaseRecord, onComplete, onCancel }) => {
   const [enrichmentStage, setEnrichmentStage] = useState('idle'); // idle, enriching, review, saving, complete

@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import './RiskAssessment.css';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = '/api';
 
 const RiskAssessment = () => {
   const [riskData, setRiskData] = useState([]);

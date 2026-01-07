@@ -5,7 +5,7 @@ import LeaseMap from './LeaseMap';
 import RiskAssessment from './RiskAssessment';
 import './Portfolio.css';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = '/api';
 
 const Portfolio = () => {
   const [kpis, setKpis] = useState(null);

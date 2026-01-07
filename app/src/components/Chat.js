@@ -63,7 +63,7 @@ const Chat = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5001/api/chat/query', {
+      const response = await fetch('/api/chat/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

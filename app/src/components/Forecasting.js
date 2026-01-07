@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi';
 import './Forecasting.css';
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = '/api';
 
 const Forecasting = () => {
   const [file, setFile] = useState(null);
