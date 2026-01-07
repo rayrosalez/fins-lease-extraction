@@ -21,6 +21,12 @@ env:
     value: "lease_management"
   - name: DATABRICKS_VOLUME
     value: "raw_lease_docs"
+  # SQL Warehouse ID from resource
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom:
+      resourceRef:
+        name: sql-warehouse
+        property: id
 
 # Resources that the app needs access to
 resources:
