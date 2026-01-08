@@ -867,7 +867,7 @@
 }
 
 .field-type {
-  color: #8B4513;
+  color: #FF3621;
   font-family: 'Courier New', monospace;
   font-weight: 600;
 }
@@ -974,9 +974,9 @@
 /* Validation Benefits */
 .validation-benefits {
   padding: 1.5rem;
-  background: rgba(107, 107, 107, 0.1);
+  background: rgba(255, 54, 33, 0.1);
   border-radius: 16px;
-  border: 1px solid rgba(107, 107, 107, 0.3);
+  border: 1px solid rgba(255, 54, 33, 0.3);
 }
 
 .validation-benefits h4 {
@@ -1001,7 +1001,7 @@
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
-  border-left: 3px solid #6B6B6B;
+  border-left: 3px solid #FF3621;
 }
 
 /* Modal CTA */
