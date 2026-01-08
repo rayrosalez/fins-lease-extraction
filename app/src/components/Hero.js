@@ -21,7 +21,7 @@ const Hero = ({ onNavigate }) => {
       icon: FiCpu,
       title: 'AI Parser',
       description: 'Advanced ML models extract text and structure',
-      color: '#8B4513',
+      color: '#FF3621',
       modal: 'parser'
     },
     {
@@ -35,13 +35,13 @@ const Hero = ({ onNavigate }) => {
       icon: FiCheckCircle,
       title: 'Human Validation',
       description: 'Review, correct, and add context',
-      color: '#6B6B6B'
+      color: '#FF3621'
     },
     {
       icon: FiSearch,
       title: 'AI Enrichment',
       description: 'Claude AI enriches financial profiles',
-      color: '#00A67E'
+      color: '#FF3621'
     }
   ];
 
@@ -56,12 +56,12 @@ const Hero = ({ onNavigate }) => {
 
   const supportedFormats = [
     { ext: 'PDF', desc: 'Portable Document Format - Standard lease documents', icon: FiFileText, color: '#FF3621' },
-    { ext: 'DOCX', desc: 'Microsoft Word - Editable lease documents', icon: FiFile, color: '#2B579A' },
-    { ext: 'DOC', desc: 'Legacy Word documents', icon: FiFile, color: '#2B579A' },
-    { ext: 'TXT', desc: 'Plain text files', icon: FiFileText, color: '#6B6B6B' },
-    { ext: 'PNG', desc: 'Image scans with OCR capability', icon: FiImage, color: '#8B4513' },
-    { ext: 'JPG', desc: 'JPEG image scans with OCR', icon: FiImage, color: '#8B4513' },
-    { ext: 'TIFF', desc: 'High-quality scanned documents', icon: FiImage, color: '#8B4513' }
+    { ext: 'DOCX', desc: 'Microsoft Word - Editable lease documents', icon: FiFile, color: '#FF3621' },
+    { ext: 'DOC', desc: 'Legacy Word documents', icon: FiFile, color: '#FF3621' },
+    { ext: 'TXT', desc: 'Plain text files', icon: FiFileText, color: '#FF3621' },
+    { ext: 'PNG', desc: 'Image scans with OCR capability', icon: FiImage, color: '#FF3621' },
+    { ext: 'JPG', desc: 'JPEG image scans with OCR', icon: FiImage, color: '#FF3621' },
+    { ext: 'TIFF', desc: 'High-quality scanned documents', icon: FiImage, color: '#FF3621' }
   ];
 
   const capabilities = [
@@ -130,14 +130,14 @@ const Hero = ({ onNavigate }) => {
             </div>
           </div>
           <div className="stat-badge">
-            <FiTrendingUp size={24} color="#8B4513" />
+            <FiTrendingUp size={24} color="#FF3621" />
             <div>
               <div className="stat-value">99.2% Accuracy</div>
               <div className="stat-label">AI Extraction</div>
             </div>
           </div>
           <div className="stat-badge">
-            <FiZap size={24} color="#6B6B6B" />
+            <FiZap size={24} color="#FF3621" />
             <div>
               <div className="stat-value">~3 mins</div>
               <div className="stat-label">Processing Time</div>
@@ -471,7 +471,7 @@ const Hero = ({ onNavigate }) => {
                       <p>Secure storage in Databricks</p>
                     </div>
                     <div className="tech-info-card">
-                      <FiShield size={32} color="#8B4513" />
+                      <FiShield size={32} color="#FF3621" />
                       <h3>Encrypted Transfer</h3>
                       <p>End-to-end TLS encryption</p>
                     </div>
@@ -521,7 +521,7 @@ const Hero = ({ onNavigate }) => {
               {activeModal === 'parser' && (
                 <div className="modal-body">
                   <div className="modal-header">
-                    <FiCpu size={48} color="#8B4513" />
+                    <FiCpu size={48} color="#FF3621" />
                     <h2>AI Document Parser</h2>
                     <p className="modal-subtitle">Advanced text extraction & structuring pipeline</p>
                   </div>
@@ -566,7 +566,7 @@ const Hero = ({ onNavigate }) => {
 
                   <div className="tech-grid">
                     <div className="tech-info-card">
-                      <FiCpu size={28} color="#8B4513" />
+                      <FiCpu size={28} color="#FF3621" />
                       <h4>ML Models</h4>
                       <p>BERT, GPT-4, Custom NER</p>
                     </div>
@@ -632,7 +632,7 @@ const Hero = ({ onNavigate }) => {
               {activeModal === 'validation' && (
                 <div className="modal-body">
                   <div className="modal-header">
-                    <FiCheckCircle size={48} color="#6B6B6B" />
+                    <FiCheckCircle size={48} color="#FF3621" />
                     <h2>Human-in-the-Loop Validation</h2>
                     <p className="modal-subtitle">Expert review & correction workflow</p>
                   </div>
