@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  FiHome, FiUser, FiTrendingUp, FiDollarSign, FiShield, 
-  FiActivity, FiCheckCircle, FiAlertTriangle, FiEdit3, 
-  FiSave, FiRefreshCw, FiX, FiBriefcase, FiMapPin, FiUsers
+  FiHome, FiUser, FiTrendingUp, 
+  FiCheckCircle, FiAlertTriangle, FiEdit3, 
+  FiSave, FiRefreshCw, FiX
 } from 'react-icons/fi';
 import './EnrichmentValidation.css';
 
@@ -25,6 +25,7 @@ const EnrichmentValidation = ({ leaseRecord, onComplete, onCancel }) => {
     if (leaseRecord && enrichmentStage === 'idle') {
       startEnrichment();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaseRecord]);
 
   const startEnrichment = async () => {

@@ -12,7 +12,6 @@ const API_BASE_URL = '/api';
 const Forecasting = () => {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [processing, setProcessing] = useState(false);
   const [forecastData, setForecastData] = useState(null);
   const [currentPortfolio, setCurrentPortfolio] = useState(null);
   const [error, setError] = useState(null);
@@ -71,7 +70,6 @@ const Forecasting = () => {
       
       // Start processing
       setUploading(false);
-      setProcessing(true);
       setStep('processing');
 
       // Poll for processing completion
@@ -91,7 +89,6 @@ const Forecasting = () => {
     const poll = async () => {
       if (attempts >= maxAttempts) {
         setError('Processing timed out after 6 minutes. The pipeline may still be running - please check back later.');
-        setProcessing(false);
         return;
       }
 
@@ -118,14 +115,12 @@ const Forecasting = () => {
           // Processing complete!
           console.log('✓ Extraction complete, showing analysis');
           setForecastData(data);
-          setProcessing(false);
           setStep('analysis');
           return;
         } else if (data.error) {
           // Error occurred
           console.error('API returned error:', data.error);
           setError(data.error || 'Failed to process lease');
-          setProcessing(false);
           return;
         } else {
           // Unexpected response

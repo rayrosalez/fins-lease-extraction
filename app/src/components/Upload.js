@@ -11,7 +11,6 @@ const Upload = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [processingStage, setProcessingStage] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [isTimeout, setIsTimeout] = useState(false);
   
@@ -221,7 +220,6 @@ const Upload = () => {
   const handleEnrichmentComplete = () => {
     console.log('Enrichment complete');
     setUploadState('success');
-    setUploadSuccess(true);
     
     setTimeout(() => {
       resetUpload();
@@ -231,7 +229,6 @@ const Upload = () => {
   const handleSkipEnrichment = () => {
     console.log('Enrichment skipped');
     setUploadState('success');
-    setUploadSuccess(true);
     
     setTimeout(() => {
       resetUpload();
@@ -244,7 +241,6 @@ const Upload = () => {
     setProcessingStage(0);
     setExtractedData(null);
     setValidatedLeaseData(null);
-    setUploadSuccess(false);
     setError(null);
     setIsTimeout(false);
     fetchNewRecords(); // Refresh the validation list
