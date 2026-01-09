@@ -10,17 +10,17 @@
         "        MEASURE(avg_rent_psf) as avg_rent_psf,\n",
         "        MEASURE(avg_years_remaining) as portfolio_walt,\n",
         "        MEASURE(expiring_365_days) as expiring_12_months\n",
-        "    FROM fins_team_3.lease_management.portfolio_lease_metrics\n",
+        "    FROM ${catalog}.${schema}.portfolio_lease_metrics\n",
         "),\n",
         "risk_metrics AS (\n",
         "    SELECT MEASURE(avg_risk_score) as avg_risk_score\n",
-        "    FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "    FROM ${catalog}.${schema}.risk_assessment_metrics\n",
         "),\n",
         "entity_counts AS (\n",
         "    SELECT \n",
         "        COUNT(DISTINCT market) as markets_count,\n",
         "        COUNT(DISTINCT city) as properties_count\n",
-        "    FROM fins_team_3.lease_management.portfolio_lease_metrics\n",
+        "    FROM ${catalog}.${schema}.portfolio_lease_metrics\n",
         "    GROUP BY ALL\n",
         ")\n",
         "SELECT \n",
@@ -47,7 +47,7 @@
         "    validation_status,\n",
         "    base_rent_psf,\n",
         "    verified_at\n",
-        "FROM fins_team_3.lease_management.silver_leases\n",
+        "FROM ${catalog}.${schema}.silver_leases\n",
         "WHERE tenant_name IS NOT NULL\n",
         "ORDER BY verified_at DESC\n",
         "LIMIT 10"
@@ -72,7 +72,7 @@
         "    annual_escalation_pct,\n",
         "    validation_status as status,\n",
         "    ROUND(DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25, 1) as years_remaining\n",
-        "FROM fins_team_3.lease_management.silver_leases\n",
+        "FROM ${catalog}.${schema}.silver_leases\n",
         "WHERE tenant_name IS NOT NULL\n",
         "ORDER BY lease_end_date ASC"
       ]
@@ -88,7 +88,7 @@
         "    ROUND(MEASURE(walt_years), 2) as walt_years,\n",
         "    MEASURE(total_sqft) as total_sqft,\n",
         "    MEASURE(total_annual_rent) as total_annual_rent\n",
-        "FROM fins_team_3.lease_management.market_performance_metrics\n",
+        "FROM ${catalog}.${schema}.market_performance_metrics\n",
         "GROUP BY market\n",
         "ORDER BY lease_count DESC"
       ]
@@ -104,7 +104,7 @@
         "    MEASURE(total_sqft) as total_sqft,\n",
         "    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n",
         "    MEASURE(total_annual_rent) as total_annual_rent\n",
-        "FROM fins_team_3.lease_management.market_performance_metrics\n",
+        "FROM ${catalog}.${schema}.market_performance_metrics\n",
         "GROUP BY city, state\n",
         "ORDER BY lease_count DESC"
       ]
@@ -130,7 +130,7 @@
         "    concentration_risk_score,\n",
         "    lease_status,\n",
         "    total_risk_score\n",
-        "FROM fins_team_3.lease_management.gold_lease_risk_scores\n",
+        "FROM ${catalog}.${schema}.gold_lease_risk_scores\n",
         "WHERE total_risk_score IS NOT NULL\n",
         "ORDER BY total_risk_score DESC\n",
         "LIMIT 100"
@@ -144,7 +144,7 @@
         "    risk_category,\n",
         "    MEASURE(total_leases) as lease_count,\n",
         "    ROUND(MEASURE(total_leases) * 100.0 / SUM(MEASURE(total_leases)) OVER (), 1) as percentage\n",
-        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "FROM ${catalog}.${schema}.risk_assessment_metrics\n",
         "GROUP BY risk_category\n",
         "ORDER BY \n",
         "    CASE risk_category\n",
@@ -165,7 +165,7 @@
         "    MEASURE(total_leases) as lease_count,\n",
         "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
         "    MEASURE(total_rent_at_risk) as total_rent_at_risk\n",
-        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "FROM ${catalog}.${schema}.risk_assessment_metrics\n",
         "GROUP BY lease_status\n",
         "ORDER BY avg_risk_score DESC"
       ]
@@ -173,7 +173,7 @@
     {
       "name": "870f3aa8",
       "displayName": "risk_assessment_metrics",
-      "asset_name": "fins_team_3.lease_management.risk_assessment_metrics"
+      "asset_name": "${catalog}.${schema}.risk_assessment_metrics"
     },
     {
       "name": "risk_by_industry_dataset",
@@ -184,7 +184,7 @@
         "    MEASURE(total_leases) as lease_count,\n",
         "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
         "    MEASURE(total_rent_at_risk) as total_rent\n",
-        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "FROM ${catalog}.${schema}.risk_assessment_metrics\n",
         "GROUP BY industry_sector\n",
         "ORDER BY avg_risk_score DESC"
       ]
@@ -198,7 +198,7 @@
         "    MEASURE(high_priority_count) as high_priority_leases,\n",
         "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
         "    MEASURE(high_risk_rent) as revenue_at_risk\n",
-        "FROM fins_team_3.lease_management.risk_assessment_metrics"
+        "FROM ${catalog}.${schema}.risk_assessment_metrics"
       ]
     },
     {
@@ -213,7 +213,7 @@
         "    estimated_annual_rent,\n",
         "    portfolio_concentration_pct,\n",
         "    total_risk_score\n",
-        "FROM fins_team_3.lease_management.gold_lease_risk_scores\n",
+        "FROM ${catalog}.${schema}.gold_lease_risk_scores\n",
         "WHERE total_risk_score IS NOT NULL\n",
         "ORDER BY total_risk_score DESC\n",
         "LIMIT 10"
@@ -245,7 +245,7 @@
         "    recent_news_sentiment,\n",
         "    enrichment_source,\n",
         "    last_enriched_at\n",
-        "FROM fins_team_3.lease_management.landlords\n",
+        "FROM ${catalog}.${schema}.landlords\n",
         "ORDER BY landlord_name"
       ]
     },
@@ -260,7 +260,7 @@
         "    MEASURE(low_risk_count) as low_risk_count,\n",
         "    MEASURE(medium_risk_count) as medium_risk_count,\n",
         "    MEASURE(high_risk_count) as high_risk_count\n",
-        "FROM fins_team_3.lease_management.landlord_metrics"
+        "FROM ${catalog}.${schema}.landlord_metrics"
       ]
     },
     {
@@ -270,7 +270,7 @@
         "SELECT \n",
         "    company_type,\n",
         "    MEASURE(total_landlords) as count\n",
-        "FROM fins_team_3.lease_management.landlord_metrics\n",
+        "FROM ${catalog}.${schema}.landlord_metrics\n",
         "GROUP BY company_type\n",
         "ORDER BY MEASURE(total_landlords) DESC"
       ]
@@ -282,7 +282,7 @@
         "SELECT \n",
         "    news_sentiment as sentiment,\n",
         "    MEASURE(total_landlords) as count\n",
-        "FROM fins_team_3.lease_management.landlord_metrics\n",
+        "FROM ${catalog}.${schema}.landlord_metrics\n",
         "GROUP BY news_sentiment\n",
         "ORDER BY \n",
         "    CASE news_sentiment\n",
@@ -320,7 +320,7 @@
         "    recent_news_sentiment,\n",
         "    litigation_flag,\n",
         "    years_in_business\n",
-        "FROM fins_team_3.lease_management.tenants\n",
+        "FROM ${catalog}.${schema}.tenants\n",
         "ORDER BY tenant_name"
       ]
     },
@@ -336,7 +336,7 @@
         "    MEASURE(low_risk_count) as low_risk_count,\n",
         "    MEASURE(medium_risk_count) as medium_risk_count,\n",
         "    MEASURE(high_risk_count) as high_risk_count\n",
-        "FROM fins_team_3.lease_management.tenant_metrics"
+        "FROM ${catalog}.${schema}.tenant_metrics"
       ]
     },
     {
@@ -346,7 +346,7 @@
         "SELECT \n",
         "    industry_sector,\n",
         "    MEASURE(total_tenants) as count\n",
-        "FROM fins_team_3.lease_management.tenant_metrics\n",
+        "FROM ${catalog}.${schema}.tenant_metrics\n",
         "GROUP BY industry_sector\n",
         "ORDER BY MEASURE(total_tenants) DESC\n",
         "LIMIT 10"
@@ -359,7 +359,7 @@
         "SELECT \n",
         "    company_size,\n",
         "    MEASURE(total_tenants) as count\n",
-        "FROM fins_team_3.lease_management.tenant_metrics\n",
+        "FROM ${catalog}.${schema}.tenant_metrics\n",
         "GROUP BY company_size\n",
         "ORDER BY \n",
         "    CASE company_size\n",
