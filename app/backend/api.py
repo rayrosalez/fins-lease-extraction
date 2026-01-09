@@ -658,6 +658,9 @@ def check_processing():
         # Extract just the filename from the full path
         filename = file_path.split('/')[-1]
         
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
+        
         print(f"Checking processing status for file: {filename}")
         
         # First check raw_leases table to see if file was ingested
@@ -666,7 +669,7 @@ def check_processing():
             file_path,
             ingested_at
         FROM {CATALOG}.{SCHEMA}.raw_leases
-        WHERE file_path LIKE '%{filename}%'
+        WHERE file_path LIKE '%{escaped_filename}%'
         ORDER BY ingested_at DESC
         LIMIT 1
         """
@@ -2231,11 +2234,15 @@ def forecasting_upload():
         
         # Check if the file has been ingested to raw layer
         filename = file_path.split('/')[-1]
+        
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
+        
         raw_query = f"""
         SELECT 
             ingested_at
         FROM {CATALOG}.{SCHEMA}.raw_leases
-        WHERE file_path LIKE '%{filename}%'
+        WHERE file_path LIKE '%{escaped_filename}%'
         ORDER BY ingested_at DESC
         LIMIT 1
         """
@@ -2272,6 +2279,9 @@ def get_forecasting_impact(lease_id):
         # Extract filename from the lease_id (which is the file_path)
         filename = lease_id.split('/')[-1]
         
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
+        
         # Check if the lease has been extracted to bronze layer
         bronze_query = f"""
         SELECT 
@@ -2292,7 +2302,7 @@ def get_forecasting_impact(lease_id):
         WHERE uploaded_at IN (
             SELECT ingested_at 
             FROM {CATALOG}.{SCHEMA}.raw_leases 
-            WHERE file_path LIKE '%{filename}%'
+            WHERE file_path LIKE '%{escaped_filename}%'
         )
         ORDER BY uploaded_at DESC
         LIMIT 1

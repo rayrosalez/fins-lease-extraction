@@ -43,12 +43,62 @@ US_ADDRESSES = [
 # Tenant names are now imported from sp500_companies.py
 # TENANT_NAMES is replaced by SP500_COMPANIES
 
+# Real commercial real estate landlord names
+# Property Management Companies, REITs, Private Equity Firms, and Investment Banks
 LANDLORD_NAMES = [
-    "Metropolitan Real Estate Holdings LLC", "Urban Properties Group Inc.",
-    "Skyline Investment Partners", "Prestige Commercial Realty LLC",
-    "Cityscape Development Corporation", "Landmark Property Management Inc.",
-    "Summit Realty Holdings LLC", "Gateway Commercial Properties",
-    "Premier Building Group LLC", "Tower Property Ventures Inc."
+    # Major Property Management Companies
+    "JLL (Jones Lang LaSalle)",
+    "CBRE Group, Inc.",
+    "Cushman & Wakefield",
+    "Colliers International",
+    "Newmark Group, Inc.",
+    "Savills",
+    "Avison Young",
+    "Marcus & Millichap",
+    
+    # Major REITs
+    "Brookfield Asset Management",
+    "Blackstone Real Estate",
+    "Prologis, Inc.",
+    "Simon Property Group",
+    "Boston Properties, Inc.",
+    "Equity Residential",
+    "AvalonBay Communities",
+    "Vornado Realty Trust",
+    "Alexandria Real Estate Equities",
+    "Digital Realty Trust",
+    "SL Green Realty Corp.",
+    "Kilroy Realty Corporation",
+    "Hines Interests Limited Partnership",
+    "Tishman Speyer",
+    "Related Companies",
+    
+    # Private Equity Real Estate Firms
+    "Carlyle Group Real Estate",
+    "Starwood Capital Group",
+    "Blackstone Group",
+    "KKR Real Estate Partners",
+    "Apollo Global Management",
+    "Oaktree Capital Management",
+    "Lone Star Funds",
+    "Cerberus Capital Management",
+    
+    # Investment Banks with Real Estate Holdings
+    "Goldman Sachs Realty",
+    "Morgan Stanley Real Estate",
+    "J.P. Morgan Asset Management",
+    "Bank of America Real Estate Group",
+    "Wells Fargo Commercial Real Estate",
+    
+    # Additional Major CRE Owners
+    "Ivanhoé Cambridge",
+    "TIAA Real Estate",
+    "Nuveen Real Estate",
+    "LaSalle Investment Management",
+    "Principal Real Estate Investors",
+    "Invesco Real Estate",
+    "AEW Capital Management",
+    "PGIM Real Estate"
 ]
 
 LANDLORD_ADDRESSES = [
