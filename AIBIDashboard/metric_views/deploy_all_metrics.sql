@@ -204,6 +204,7 @@ CREATE OR REPLACE VIEW tenant_metrics
     growing_companies COMMENT 'Positive revenue growth count',
     declining_companies COMMENT 'Negative revenue growth count',
     low_risk_count COMMENT 'LOW bankruptcy risk count',
+    medium_risk_count COMMENT 'MEDIUM bankruptcy risk count',
     high_risk_count COMMENT 'HIGH bankruptcy risk count',
     litigation_count COMMENT 'Active litigation count'
   )
@@ -243,6 +244,8 @@ CREATE OR REPLACE VIEW tenant_metrics
         expr: COUNT(1) FILTER (WHERE revenue_growth_pct < 0)
       - name: low_risk_count
         expr: COUNT(1) FILTER (WHERE bankruptcy_risk = 'LOW')
+      - name: medium_risk_count
+        expr: COUNT(1) FILTER (WHERE bankruptcy_risk = 'MEDIUM')
       - name: high_risk_count
         expr: COUNT(1) FILTER (WHERE bankruptcy_risk = 'HIGH')
       - name: litigation_count

@@ -3,97 +3,372 @@
     {
       "name": "kpis_dataset",
       "displayName": "Portfolio KPIs (from Metric Views)",
-      "query": "WITH lease_metrics AS (\n    SELECT \n        MEASURE(total_leases) as total_leases,\n        MEASURE(avg_rent_psf) as avg_rent_psf,\n        MEASURE(avg_years_remaining) as portfolio_walt,\n        MEASURE(expiring_365_days) as expiring_12_months\n    FROM ${catalog}.${schema}.portfolio_lease_metrics\n),\nrisk_metrics AS (\n    SELECT MEASURE(avg_risk_score) as avg_risk_score\n    FROM ${catalog}.${schema}.risk_assessment_metrics\n),\nentity_counts AS (\n    SELECT \n        COUNT(DISTINCT market) as markets_count,\n        COUNT(DISTINCT city) as properties_count\n    FROM ${catalog}.${schema}.portfolio_lease_metrics\n    GROUP BY ALL\n)\nSELECT \n    l.total_leases,\n    e.properties_count as total_properties,\n    l.total_leases as total_tenants,\n    e.markets_count,\n    l.avg_rent_psf,\n    l.portfolio_walt,\n    COALESCE(r.avg_risk_score, 0) as avg_risk_score,\n    l.expiring_12_months\nFROM lease_metrics l\nCROSS JOIN risk_metrics r\nCROSS JOIN entity_counts e"
+      "queryLines": [
+        "WITH lease_metrics AS (\n",
+        "    SELECT \n",
+        "        MEASURE(total_leases) as total_leases,\n",
+        "        MEASURE(avg_rent_psf) as avg_rent_psf,\n",
+        "        MEASURE(avg_years_remaining) as portfolio_walt,\n",
+        "        MEASURE(expiring_365_days) as expiring_12_months\n",
+        "    FROM fins_team_3.lease_management.portfolio_lease_metrics\n",
+        "),\n",
+        "risk_metrics AS (\n",
+        "    SELECT MEASURE(avg_risk_score) as avg_risk_score\n",
+        "    FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "),\n",
+        "entity_counts AS (\n",
+        "    SELECT \n",
+        "        COUNT(DISTINCT market) as markets_count,\n",
+        "        COUNT(DISTINCT city) as properties_count\n",
+        "    FROM fins_team_3.lease_management.portfolio_lease_metrics\n",
+        "    GROUP BY ALL\n",
+        ")\n",
+        "SELECT \n",
+        "    l.total_leases,\n",
+        "    e.properties_count as total_properties,\n",
+        "    l.total_leases as total_tenants,\n",
+        "    e.markets_count,\n",
+        "    l.avg_rent_psf,\n",
+        "    l.portfolio_walt,\n",
+        "    COALESCE(r.avg_risk_score, 0) as avg_risk_score,\n",
+        "    l.expiring_12_months\n",
+        "FROM lease_metrics l\n",
+        "CROSS JOIN risk_metrics r\n",
+        "CROSS JOIN entity_counts e"
+      ]
     },
     {
       "name": "recent_extractions_dataset",
       "displayName": "Recent Extractions",
-      "query": "SELECT \n    lease_id,\n    CONCAT(tenant_name, '_lease.pdf') as filename,\n    validation_status,\n    base_rent_psf,\n    verified_at\nFROM ${catalog}.${schema}.silver_leases\nWHERE tenant_name IS NOT NULL\nORDER BY verified_at DESC\nLIMIT 10"
+      "queryLines": [
+        "SELECT \n",
+        "    lease_id,\n",
+        "    CONCAT(tenant_name, '_lease.pdf') as filename,\n",
+        "    validation_status,\n",
+        "    base_rent_psf,\n",
+        "    verified_at\n",
+        "FROM fins_team_3.lease_management.silver_leases\n",
+        "WHERE tenant_name IS NOT NULL\n",
+        "ORDER BY verified_at DESC\n",
+        "LIMIT 10"
+      ]
     },
     {
       "name": "all_leases_dataset",
       "displayName": "All Leases (Detail)",
-      "query": "SELECT \n    lease_id,\n    COALESCE(property_id, 'Unknown Property') as property_name,\n    COALESCE(industry_sector, 'Unknown') as market,\n    COALESCE(lease_type, 'Unknown') as asset_type,\n    tenant_name,\n    industry_sector,\n    lease_start_date as commencement_date,\n    lease_end_date as expiration_date,\n    base_rent_psf,\n    square_footage,\n    estimated_annual_rent,\n    annual_escalation_pct,\n    validation_status as status,\n    ROUND(DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25, 1) as years_remaining\nFROM ${catalog}.${schema}.silver_leases\nWHERE tenant_name IS NOT NULL\nORDER BY lease_end_date ASC"
+      "queryLines": [
+        "SELECT \n",
+        "    lease_id,\n",
+        "    COALESCE(property_id, 'Unknown Property') as property_name,\n",
+        "    COALESCE(industry_sector, 'Unknown') as market,\n",
+        "    COALESCE(lease_type, 'Unknown') as asset_type,\n",
+        "    tenant_name,\n",
+        "    industry_sector,\n",
+        "    lease_start_date as commencement_date,\n",
+        "    lease_end_date as expiration_date,\n",
+        "    base_rent_psf,\n",
+        "    square_footage,\n",
+        "    estimated_annual_rent,\n",
+        "    annual_escalation_pct,\n",
+        "    validation_status as status,\n",
+        "    ROUND(DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25, 1) as years_remaining\n",
+        "FROM fins_team_3.lease_management.silver_leases\n",
+        "WHERE tenant_name IS NOT NULL\n",
+        "ORDER BY lease_end_date ASC"
+      ]
     },
     {
       "name": "market_summary_dataset",
       "displayName": "Market Summary (from Metric View)",
-      "query": "SELECT \n    market,\n    MEASURE(lease_count) as lease_count,\n    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n    ROUND(MEASURE(walt_years), 2) as walt_years,\n    MEASURE(total_sqft) as total_sqft,\n    MEASURE(total_annual_rent) as total_annual_rent\nFROM ${catalog}.${schema}.market_performance_metrics\nGROUP BY market\nORDER BY lease_count DESC"
+      "queryLines": [
+        "SELECT \n",
+        "    market,\n",
+        "    MEASURE(lease_count) as lease_count,\n",
+        "    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n",
+        "    ROUND(MEASURE(walt_years), 2) as walt_years,\n",
+        "    MEASURE(total_sqft) as total_sqft,\n",
+        "    MEASURE(total_annual_rent) as total_annual_rent\n",
+        "FROM fins_team_3.lease_management.market_performance_metrics\n",
+        "GROUP BY market\n",
+        "ORDER BY lease_count DESC"
+      ]
     },
     {
       "name": "location_summary_dataset",
       "displayName": "Location Summary (from Metric View)",
-      "query": "SELECT \n    city,\n    state,\n    MEASURE(lease_count) as lease_count,\n    MEASURE(total_sqft) as total_sqft,\n    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n    MEASURE(total_annual_rent) as total_annual_rent\nFROM ${catalog}.${schema}.market_performance_metrics\nGROUP BY city, state\nORDER BY lease_count DESC"
+      "queryLines": [
+        "SELECT \n",
+        "    city,\n",
+        "    state,\n",
+        "    MEASURE(lease_count) as lease_count,\n",
+        "    MEASURE(total_sqft) as total_sqft,\n",
+        "    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n",
+        "    MEASURE(total_annual_rent) as total_annual_rent\n",
+        "FROM fins_team_3.lease_management.market_performance_metrics\n",
+        "GROUP BY city, state\n",
+        "ORDER BY lease_count DESC"
+      ]
     },
     {
       "name": "risk_assessment_dataset",
       "displayName": "Risk Assessment (Detail)",
-      "query": "SELECT \n    lease_id,\n    tenant_name,\n    property_id,\n    industry_sector,\n    lease_end_date,\n    annual_escalation_pct,\n    estimated_annual_rent,\n    square_footage,\n    days_to_expiry,\n    sector_risk_base,\n    portfolio_concentration_pct,\n    rollover_score,\n    escalation_risk_score,\n    concentration_risk_score,\n    lease_status,\n    total_risk_score\nFROM ${catalog}.${schema}.gold_lease_risk_scores\nWHERE total_risk_score IS NOT NULL\nORDER BY total_risk_score DESC\nLIMIT 100"
+      "queryLines": [
+        "SELECT \n",
+        "    lease_id,\n",
+        "    tenant_name,\n",
+        "    property_id,\n",
+        "    industry_sector,\n",
+        "    lease_end_date,\n",
+        "    annual_escalation_pct,\n",
+        "    estimated_annual_rent,\n",
+        "    square_footage,\n",
+        "    days_to_expiry,\n",
+        "    sector_risk_base,\n",
+        "    portfolio_concentration_pct,\n",
+        "    rollover_score,\n",
+        "    escalation_risk_score,\n",
+        "    concentration_risk_score,\n",
+        "    lease_status,\n",
+        "    total_risk_score\n",
+        "FROM fins_team_3.lease_management.gold_lease_risk_scores\n",
+        "WHERE total_risk_score IS NOT NULL\n",
+        "ORDER BY total_risk_score DESC\n",
+        "LIMIT 100"
+      ]
     },
     {
       "name": "risk_distribution_dataset",
       "displayName": "Risk Distribution (from Metric View)",
-      "query": "SELECT \n    risk_category,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(total_leases) * 100.0 / SUM(MEASURE(total_leases)) OVER (), 1) as percentage\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY risk_category\nORDER BY \n    CASE risk_category\n        WHEN 'Critical (80-100)' THEN 1\n        WHEN 'High (60-79)' THEN 2\n        WHEN 'Medium (40-59)' THEN 3\n        WHEN 'Low (20-39)' THEN 4\n        ELSE 5\n    END"
+      "queryLines": [
+        "SELECT \n",
+        "    risk_category,\n",
+        "    MEASURE(total_leases) as lease_count,\n",
+        "    ROUND(MEASURE(total_leases) * 100.0 / SUM(MEASURE(total_leases)) OVER (), 1) as percentage\n",
+        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "GROUP BY risk_category\n",
+        "ORDER BY \n",
+        "    CASE risk_category\n",
+        "        WHEN 'Critical (80-100)' THEN 1\n",
+        "        WHEN 'High (60-79)' THEN 2\n",
+        "        WHEN 'Medium (40-59)' THEN 3\n",
+        "        WHEN 'Low (20-39)' THEN 4\n",
+        "        ELSE 5\n",
+        "    END"
+      ]
     },
     {
       "name": "risk_by_status_dataset",
       "displayName": "Risk by Status (from Metric View)",
-      "query": "SELECT \n    lease_status,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(total_rent_at_risk) as total_rent_at_risk\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY lease_status\nORDER BY avg_risk_score DESC"
+      "queryLines": [
+        "SELECT \n",
+        "    lease_status,\n",
+        "    MEASURE(total_leases) as lease_count,\n",
+        "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
+        "    MEASURE(total_rent_at_risk) as total_rent_at_risk\n",
+        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "GROUP BY lease_status\n",
+        "ORDER BY avg_risk_score DESC"
+      ]
+    },
+    {
+      "name": "870f3aa8",
+      "displayName": "risk_assessment_metrics",
+      "asset_name": "fins_team_3.lease_management.risk_assessment_metrics"
     },
     {
       "name": "risk_by_industry_dataset",
       "displayName": "Risk by Industry (from Metric View)",
-      "query": "SELECT \n    industry_sector,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(total_rent_at_risk) as total_rent\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY industry_sector\nORDER BY avg_risk_score DESC"
+      "queryLines": [
+        "SELECT \n",
+        "    industry_sector,\n",
+        "    MEASURE(total_leases) as lease_count,\n",
+        "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
+        "    MEASURE(total_rent_at_risk) as total_rent\n",
+        "FROM fins_team_3.lease_management.risk_assessment_metrics\n",
+        "GROUP BY industry_sector\n",
+        "ORDER BY avg_risk_score DESC"
+      ]
     },
     {
       "name": "risk_summary_dataset",
       "displayName": "Risk Summary KPIs (from Metric View)",
-      "query": "SELECT \n    MEASURE(critical_lease_count) as critical_leases,\n    MEASURE(high_priority_count) as high_priority_leases,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(high_risk_rent) as revenue_at_risk\nFROM ${catalog}.${schema}.risk_assessment_metrics"
+      "queryLines": [
+        "SELECT \n",
+        "    MEASURE(critical_lease_count) as critical_leases,\n",
+        "    MEASURE(high_priority_count) as high_priority_leases,\n",
+        "    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n",
+        "    MEASURE(high_risk_rent) as revenue_at_risk\n",
+        "FROM fins_team_3.lease_management.risk_assessment_metrics"
+      ]
     },
     {
       "name": "top_risky_leases_dataset",
       "displayName": "Top Risky Leases (Detail)",
-      "query": "SELECT \n    tenant_name,\n    industry_sector,\n    lease_status,\n    days_to_expiry,\n    estimated_annual_rent,\n    portfolio_concentration_pct,\n    total_risk_score\nFROM ${catalog}.${schema}.gold_lease_risk_scores\nWHERE total_risk_score IS NOT NULL\nORDER BY total_risk_score DESC\nLIMIT 10"
+      "queryLines": [
+        "SELECT \n",
+        "    tenant_name,\n",
+        "    industry_sector,\n",
+        "    lease_status,\n",
+        "    days_to_expiry,\n",
+        "    estimated_annual_rent,\n",
+        "    portfolio_concentration_pct,\n",
+        "    total_risk_score\n",
+        "FROM fins_team_3.lease_management.gold_lease_risk_scores\n",
+        "WHERE total_risk_score IS NOT NULL\n",
+        "ORDER BY total_risk_score DESC\n",
+        "LIMIT 10"
+      ]
     },
     {
       "name": "landlords_dataset",
       "displayName": "Landlords (Detail)",
-      "query": "SELECT \n    landlord_id,\n    landlord_name,\n    landlord_address,\n    company_type,\n    stock_ticker,\n    market_cap,\n    total_assets,\n    credit_rating,\n    credit_rating_agency,\n    annual_revenue,\n    net_operating_income,\n    debt_to_equity_ratio,\n    total_properties,\n    total_square_footage,\n    primary_property_types,\n    geographic_focus,\n    financial_health_score,\n    bankruptcy_risk,\n    recent_news_sentiment,\n    enrichment_source,\n    last_enriched_at\nFROM ${catalog}.${schema}.landlords\nORDER BY landlord_name"
+      "queryLines": [
+        "SELECT \n",
+        "    landlord_id,\n",
+        "    landlord_name,\n",
+        "    landlord_address,\n",
+        "    company_type,\n",
+        "    stock_ticker,\n",
+        "    market_cap,\n",
+        "    total_assets,\n",
+        "    credit_rating,\n",
+        "    credit_rating_agency,\n",
+        "    annual_revenue,\n",
+        "    net_operating_income,\n",
+        "    debt_to_equity_ratio,\n",
+        "    total_properties,\n",
+        "    total_square_footage,\n",
+        "    primary_property_types,\n",
+        "    geographic_focus,\n",
+        "    financial_health_score,\n",
+        "    bankruptcy_risk,\n",
+        "    recent_news_sentiment,\n",
+        "    enrichment_source,\n",
+        "    last_enriched_at\n",
+        "FROM fins_team_3.lease_management.landlords\n",
+        "ORDER BY landlord_name"
+      ]
     },
     {
       "name": "landlords_summary_dataset",
       "displayName": "Landlords Summary (from Metric View)",
-      "query": "SELECT \n    MEASURE(total_landlords) as total_landlords,\n    MEASURE(total_revenue) as total_revenue,\n    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n    MEASURE(low_risk_count) as low_risk_count,\n    MEASURE(medium_risk_count) as medium_risk_count,\n    MEASURE(high_risk_count) as high_risk_count\nFROM ${catalog}.${schema}.landlord_metrics"
+      "queryLines": [
+        "SELECT \n",
+        "    MEASURE(total_landlords) as total_landlords,\n",
+        "    MEASURE(total_revenue) as total_revenue,\n",
+        "    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n",
+        "    MEASURE(low_risk_count) as low_risk_count,\n",
+        "    MEASURE(medium_risk_count) as medium_risk_count,\n",
+        "    MEASURE(high_risk_count) as high_risk_count\n",
+        "FROM fins_team_3.lease_management.landlord_metrics"
+      ]
     },
     {
       "name": "landlords_by_type_dataset",
       "displayName": "Landlords by Type (from Metric View)",
-      "query": "SELECT \n    company_type,\n    MEASURE(total_landlords) as count\nFROM ${catalog}.${schema}.landlord_metrics\nGROUP BY company_type\nORDER BY MEASURE(total_landlords) DESC"
+      "queryLines": [
+        "SELECT \n",
+        "    company_type,\n",
+        "    MEASURE(total_landlords) as count\n",
+        "FROM fins_team_3.lease_management.landlord_metrics\n",
+        "GROUP BY company_type\n",
+        "ORDER BY MEASURE(total_landlords) DESC"
+      ]
     },
     {
       "name": "landlords_by_sentiment_dataset",
       "displayName": "Landlords by Sentiment (from Metric View)",
-      "query": "SELECT \n    news_sentiment as sentiment,\n    MEASURE(total_landlords) as count\nFROM ${catalog}.${schema}.landlord_metrics\nGROUP BY news_sentiment\nORDER BY \n    CASE news_sentiment\n        WHEN 'POSITIVE' THEN 1\n        WHEN 'NEUTRAL' THEN 2\n        WHEN 'NEGATIVE' THEN 3\n        ELSE 4\n    END"
+      "queryLines": [
+        "SELECT \n",
+        "    news_sentiment as sentiment,\n",
+        "    MEASURE(total_landlords) as count\n",
+        "FROM fins_team_3.lease_management.landlord_metrics\n",
+        "GROUP BY news_sentiment\n",
+        "ORDER BY \n",
+        "    CASE news_sentiment\n",
+        "        WHEN 'POSITIVE' THEN 1\n",
+        "        WHEN 'NEUTRAL' THEN 2\n",
+        "        WHEN 'NEGATIVE' THEN 3\n",
+        "        ELSE 4\n",
+        "    END"
+      ]
     },
     {
       "name": "tenants_dataset",
       "displayName": "Tenants (Detail)",
-      "query": "SELECT \n    tenant_id,\n    tenant_name,\n    tenant_address,\n    industry_sector,\n    company_type,\n    parent_company,\n    stock_ticker,\n    founding_year,\n    employee_count,\n    headquarters_location,\n    market_cap,\n    annual_revenue,\n    net_income,\n    revenue_growth_pct,\n    profit_margin_pct,\n    credit_rating,\n    financial_health_score,\n    bankruptcy_risk,\n    industry_risk,\n    recent_news_sentiment,\n    litigation_flag,\n    years_in_business\nFROM ${catalog}.${schema}.tenants\nORDER BY tenant_name"
+      "queryLines": [
+        "SELECT \n",
+        "    tenant_id,\n",
+        "    tenant_name,\n",
+        "    tenant_address,\n",
+        "    industry_sector,\n",
+        "    company_type,\n",
+        "    parent_company,\n",
+        "    stock_ticker,\n",
+        "    founding_year,\n",
+        "    employee_count,\n",
+        "    headquarters_location,\n",
+        "    market_cap,\n",
+        "    annual_revenue,\n",
+        "    net_income,\n",
+        "    revenue_growth_pct,\n",
+        "    profit_margin_pct,\n",
+        "    credit_rating,\n",
+        "    financial_health_score,\n",
+        "    bankruptcy_risk,\n",
+        "    industry_risk,\n",
+        "    recent_news_sentiment,\n",
+        "    litigation_flag,\n",
+        "    years_in_business\n",
+        "FROM fins_team_3.lease_management.tenants\n",
+        "ORDER BY tenant_name"
+      ]
     },
     {
       "name": "tenants_summary_dataset",
       "displayName": "Tenants Summary (from Metric View)",
-      "query": "SELECT \n    MEASURE(total_tenants) as total_tenants,\n    MEASURE(total_revenue) as total_revenue,\n    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n    MEASURE(growing_companies) as growing_companies,\n    MEASURE(low_risk_count) as low_risk_count,\n    MEASURE(high_risk_count) as high_risk_count\nFROM ${catalog}.${schema}.tenant_metrics"
+      "queryLines": [
+        "SELECT \n",
+        "    MEASURE(total_tenants) as total_tenants,\n",
+        "    MEASURE(total_revenue) as total_revenue,\n",
+        "    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n",
+        "    MEASURE(growing_companies) as growing_companies,\n",
+        "    MEASURE(low_risk_count) as low_risk_count,\n",
+        "    MEASURE(medium_risk_count) as medium_risk_count,\n",
+        "    MEASURE(high_risk_count) as high_risk_count\n",
+        "FROM fins_team_3.lease_management.tenant_metrics"
+      ]
     },
     {
       "name": "tenants_by_industry_dataset",
       "displayName": "Tenants by Industry (from Metric View)",
-      "query": "SELECT \n    industry_sector,\n    MEASURE(total_tenants) as count\nFROM ${catalog}.${schema}.tenant_metrics\nGROUP BY industry_sector\nORDER BY MEASURE(total_tenants) DESC\nLIMIT 10"
+      "queryLines": [
+        "SELECT \n",
+        "    industry_sector,\n",
+        "    MEASURE(total_tenants) as count\n",
+        "FROM fins_team_3.lease_management.tenant_metrics\n",
+        "GROUP BY industry_sector\n",
+        "ORDER BY MEASURE(total_tenants) DESC\n",
+        "LIMIT 10"
+      ]
     },
     {
       "name": "tenants_by_size_dataset",
       "displayName": "Tenants by Size (from Metric View)",
-      "query": "SELECT \n    company_size,\n    MEASURE(total_tenants) as count\nFROM ${catalog}.${schema}.tenant_metrics\nGROUP BY company_size\nORDER BY \n    CASE company_size\n        WHEN 'Small (<100)' THEN 1\n        WHEN 'Medium (100-1K)' THEN 2\n        WHEN 'Large (1K-10K)' THEN 3\n        ELSE 4\n    END"
+      "queryLines": [
+        "SELECT \n",
+        "    company_size,\n",
+        "    MEASURE(total_tenants) as count\n",
+        "FROM fins_team_3.lease_management.tenant_metrics\n",
+        "GROUP BY company_size\n",
+        "ORDER BY \n",
+        "    CASE company_size\n",
+        "        WHEN 'Small (<100)' THEN 1\n",
+        "        WHEN 'Medium (100-1K)' THEN 2\n",
+        "        WHEN 'Large (1K-10K)' THEN 3\n",
+        "        ELSE 4\n",
+        "    END"
+      ]
     }
   ],
   "pages": [
@@ -104,7 +379,15 @@
         {
           "widget": {
             "name": "overview_title",
-            "textbox_spec": "# Lease Portfolio Analytics\n\n**Real-time insights from Databricks Unity Catalog**\n\nThis dashboard uses **Databricks Metric Views** for centralized, governed metric calculations. All aggregate KPIs are computed from reusable metric definitions ensuring consistency across all analytics."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Lease Portfolio Analytics\n",
+                "\n",
+                "**Real-time insights from Databricks Unity Catalog**\n",
+                "\n",
+                "This dashboard uses **Databricks Metric Views** for centralized, governed metric calculations. All aggregate KPIs are computed from reusable metric definitions ensuring consistency across all analytics."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -123,6 +406,10 @@
                   "datasetName": "kpis_dataset",
                   "fields": [
                     {
+                      "name": "expiring_12_months",
+                      "expression": "`expiring_12_months`"
+                    },
+                    {
                       "name": "total_leases",
                       "expression": "`total_leases`"
                     }
@@ -138,13 +425,24 @@
                 "value": {
                   "fieldName": "total_leases",
                   "displayName": "Total Leases"
+                },
+                "target": {
+                  "fieldName": "expiring_12_months",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
                 }
               },
               "frame": {
                 "title": "Total Leases",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "From portfolio_lease_metrics"
+                "description": "Bottom #: Expiring in 12 months"
               }
             }
           },
@@ -165,6 +463,10 @@
                   "datasetName": "kpis_dataset",
                   "fields": [
                     {
+                      "name": "total_leases",
+                      "expression": "`total_leases`"
+                    },
+                    {
                       "name": "avg_rent_psf",
                       "expression": "`avg_rent_psf`"
                     }
@@ -179,14 +481,26 @@
               "encodings": {
                 "value": {
                   "fieldName": "avg_rent_psf",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
                   "displayName": "Avg. Rent PSF"
+                },
+                "target": {
+                  "fieldName": "total_leases"
                 }
               },
               "frame": {
                 "title": "Avg. Rent PSF",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "From portfolio_lease_metrics"
+                "description": "Bottom #: Number of leases"
               }
             }
           },
@@ -207,6 +521,10 @@
                   "datasetName": "kpis_dataset",
                   "fields": [
                     {
+                      "name": "markets_count",
+                      "expression": "`markets_count`"
+                    },
+                    {
                       "name": "portfolio_walt",
                       "expression": "`portfolio_walt`"
                     }
@@ -222,13 +540,16 @@
                 "value": {
                   "fieldName": "portfolio_walt",
                   "displayName": "Portfolio WALT (Years)"
+                },
+                "target": {
+                  "fieldName": "markets_count"
                 }
               },
               "frame": {
                 "title": "Portfolio WALT",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "From portfolio_lease_metrics"
+                "description": "Bottom #: Number of markets"
               }
             }
           },
@@ -249,6 +570,10 @@
                   "datasetName": "kpis_dataset",
                   "fields": [
                     {
+                      "name": "total_tenants",
+                      "expression": "`total_tenants`"
+                    },
+                    {
                       "name": "avg_risk_score",
                       "expression": "`avg_risk_score`"
                     }
@@ -264,13 +589,16 @@
                 "value": {
                   "fieldName": "avg_risk_score",
                   "displayName": "Avg. Risk Score"
+                },
+                "target": {
+                  "fieldName": "total_tenants"
                 }
               },
               "frame": {
                 "title": "Avg. Risk Score",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "From risk_assessment_metrics"
+                "description": "Bottom #: Total tenants"
               }
             }
           },
@@ -312,7 +640,7 @@
                 "title": "Expiring Soon",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "From portfolio_lease_metrics"
+                "description": "Within the next 12 months"
               }
             }
           },
@@ -402,28 +730,118 @@
                 "columns": [
                   {
                     "fieldName": "filename",
-                    "displayName": "Document"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Document",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "validation_status",
-                    "displayName": "Status"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "base_rent_psf",
-                    "displayName": "Rent PSF"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Rent PSF",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "verified_at",
-                    "displayName": "Verified Date"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Verified Date",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "dateTimeFormat": "YYYY-MM-DD"
                   }
                 ]
               },
-              "frame": {
-                "title": "Recent Extractions",
-                "showTitle": true,
-                "showDescription": true,
-                "description": "Latest lease documents processed"
-              }
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
             }
           },
           "position": {
@@ -433,7 +851,8 @@
             "height": 4
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "risk_assessment_page",
@@ -442,7 +861,18 @@
         {
           "widget": {
             "name": "risk_title",
-            "textbox_spec": "# Risk Assessment\n\n**Powered by `risk_assessment_metrics` Metric View**\n\nAll risk metrics are calculated from the centralized metric view definition, ensuring consistent scoring methodology across all reports and dashboards.\n\n**Risk Score Components:**\n- Rollover Risk (40%): Days until lease expiration\n- Escalation Risk (20%): Rent escalation vs inflation\n- Industry Risk (20%): Sector-based default risk\n- Concentration Risk (20%): Portfolio exposure"
+            "multilineTextboxSpec": {
+              "lines": [
+                "#### **How Scores Are Calculated**\n",
+                "\n",
+                "Each lease receives a Total Risk Score (0-100) based on four weighted components:\n",
+                "\n",
+                "- **Rollover Risk (40%):&#32;** Days until lease expiration\n",
+                "- **Escalation Risk (20%):** Rent escalation vs inflation\n",
+                "- **Industry Risk (20%):&#32;** Sector-based default risk\n",
+                "- **Concentration Risk (20%):** Portfolio exposure"
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -482,14 +912,14 @@
                 "title": "Critical Leases",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "MEASURE(critical_lease_count)"
+                "description": "Expiring 0-90 days"
               }
             }
           },
           "position": {
-            "x": 0,
+            "x": 1,
             "y": 3,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -524,14 +954,14 @@
                 "title": "High Priority",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "MEASURE(high_priority_count)"
+                "description": "Expiring 91-180 days"
               }
             }
           },
           "position": {
             "x": 2,
             "y": 3,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -559,6 +989,15 @@
               "encodings": {
                 "value": {
                   "fieldName": "revenue_at_risk",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
                   "displayName": "Revenue at Risk"
                 }
               },
@@ -566,14 +1005,14 @@
                 "title": "Revenue at Risk",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "MEASURE(high_risk_rent)"
+                "description": "Score > 70"
               }
             }
           },
           "position": {
             "x": 4,
             "y": 3,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -587,12 +1026,12 @@
                   "datasetName": "risk_distribution_dataset",
                   "fields": [
                     {
-                      "name": "risk_category",
-                      "expression": "`risk_category`"
-                    },
-                    {
                       "name": "lease_count",
                       "expression": "`lease_count`"
+                    },
+                    {
+                      "name": "risk_category",
+                      "expression": "`risk_category`"
                     }
                   ],
                   "disaggregated": true
@@ -600,25 +1039,28 @@
               }
             ],
             "spec": {
-              "version": 2,
+              "version": 3,
               "widgetType": "pie",
               "encodings": {
                 "angle": {
                   "fieldName": "lease_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Lease Count"
                 },
                 "color": {
                   "fieldName": "risk_category",
+                  "displayName": "Risk Category",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Risk Category"
+                  }
                 }
               },
               "frame": {
                 "title": "Risk Distribution",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "From risk_assessment_metrics dimension"
               }
             }
@@ -640,12 +1082,12 @@
                   "datasetName": "risk_distribution_dataset",
                   "fields": [
                     {
-                      "name": "risk_category",
-                      "expression": "`risk_category`"
-                    },
-                    {
                       "name": "lease_count",
                       "expression": "`lease_count`"
+                    },
+                    {
+                      "name": "risk_category",
+                      "expression": "`risk_category`"
                     }
                   ],
                   "disaggregated": true
@@ -658,23 +1100,34 @@
               "encodings": {
                 "x": {
                   "fieldName": "risk_category",
+                  "displayName": "Risk Category",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Risk Category"
+                  }
                 },
                 "y": {
                   "fieldName": "lease_count",
+                  "displayName": "Lease Count",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Lease Count"
+                  }
+                },
+                "color": {
+                  "fieldName": "lease_count",
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "scheme",
+                      "scheme": "redblue"
+                    },
+                    "reverse": false
+                  }
                 }
               },
               "frame": {
                 "title": "Risk Categories",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_leases) by risk_category"
               }
             }
@@ -696,16 +1149,12 @@
                   "datasetName": "risk_by_industry_dataset",
                   "fields": [
                     {
-                      "name": "industry_sector",
-                      "expression": "`industry_sector`"
-                    },
-                    {
                       "name": "avg_risk_score",
                       "expression": "`avg_risk_score`"
                     },
                     {
-                      "name": "lease_count",
-                      "expression": "`lease_count`"
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
                     }
                   ],
                   "disaggregated": true
@@ -718,23 +1167,36 @@
               "encodings": {
                 "x": {
                   "fieldName": "avg_risk_score",
+                  "displayName": "Avg Risk Score",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Avg Risk Score"
+                  }
                 },
                 "y": {
                   "fieldName": "industry_sector",
+                  "displayName": "Industry",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Industry"
+                  }
+                },
+                "color": {
+                  "fieldName": "avg_risk_score",
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "scheme",
+                      "scheme": "greens"
+                    }
+                  }
+                },
+                "label": {
+                  "show": false
                 }
               },
               "frame": {
                 "title": "Risk by Industry Sector",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(avg_risk_score) by industry_sector"
               }
             }
@@ -743,7 +1205,7 @@
             "x": 0,
             "y": 10,
             "width": 6,
-            "height": 4
+            "height": 5
           }
         },
         {
@@ -795,50 +1257,436 @@
                 "columns": [
                   {
                     "fieldName": "tenant_name",
-                    "displayName": "Tenant"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Tenant",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "industry_sector",
-                    "displayName": "Industry"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Industry",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "lease_status",
-                    "displayName": "Status"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "days_to_expiry",
-                    "displayName": "Days to Expiry"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Days to Expiry",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "estimated_annual_rent",
-                    "displayName": "Annual Rent"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Annual Rent",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "portfolio_concentration_pct",
-                    "displayName": "Concentration %"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Concentration %",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "0.00%"
                   },
                   {
                     "fieldName": "total_risk_score",
-                    "displayName": "Risk Score"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Risk Score",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "0.0"
                   }
                 ]
               },
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 22,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "risk-vs-time-matrix-annual-rent-value",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "870f3aa8",
+                  "fields": [
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
+                    },
+                    {
+                      "name": "measure(avg_rollover_risk)",
+                      "expression": "MEASURE(`avg_rollover_risk`)"
+                    },
+                    {
+                      "name": "measure(avg_escalation_risk)",
+                      "expression": "MEASURE(`avg_escalation_risk`)"
+                    },
+                    {
+                      "name": "measure(avg_concentration_risk)",
+                      "expression": "MEASURE(`avg_concentration_risk`)"
+                    },
+                    {
+                      "name": "measure(avg_industry_risk)",
+                      "expression": "MEASURE(`avg_industry_risk`)"
+                    },
+                    {
+                      "name": "measure(avg_risk_score)",
+                      "expression": "MEASURE(`avg_risk_score`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "industry_sector",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "primary": {
+                    "fields": [
+                      {
+                        "fieldName": "measure(avg_rollover_risk)",
+                        "displayName": "Rollover Risk"
+                      },
+                      {
+                        "fieldName": "measure(avg_escalation_risk)",
+                        "displayName": "Escalation Risk"
+                      },
+                      {
+                        "fieldName": "measure(avg_concentration_risk)",
+                        "displayName": "Concentration Risk"
+                      },
+                      {
+                        "fieldName": "measure(avg_industry_risk)",
+                        "displayName": "Industry Risk"
+                      }
+                    ]
+                  },
+                  "secondary": {
+                    "fields": [
+                      {
+                        "fieldName": "measure(avg_risk_score)",
+                        "displayName": "Average Risk Score"
+                      }
+                    ]
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
               "frame": {
-                "title": "Top 10 Highest Risk Leases",
+                "title": "Risk Component Breakdown",
                 "showTitle": true,
                 "showDescription": true,
-                "description": "Detail view from gold_lease_risk_scores"
+                "description": "Average scores across portfolio"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 14,
-            "width": 6,
-            "height": 5
+            "y": 15,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "risk-vs-time-matrix1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_assessment_dataset",
+                  "fields": [
+                    {
+                      "name": "total_risk_score",
+                      "expression": "`total_risk_score`"
+                    },
+                    {
+                      "name": "estimated_annual_rent",
+                      "expression": "`estimated_annual_rent`"
+                    },
+                    {
+                      "name": "days_to_expiry",
+                      "expression": "`days_to_expiry`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "days_to_expiry",
+                  "axis": {
+                    "title": "Days Until Expiration"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "total_risk_score",
+                  "axis": {
+                    "title": "Total Risk Score"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "total_risk_score",
+                  "legend": {
+                    "title": "",
+                    "hideTitle": true,
+                    "hide": false
+                  },
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "scheme",
+                      "scheme": "rainbow"
+                    },
+                    "reverse": true
+                  }
+                },
+                "size": {
+                  "fieldName": "estimated_annual_rent",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Risk vs. Time Matrix",
+                "description": "Bubble size = Annual rent value"
+              },
+              "mark": {
+                "size": -1.7
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 15,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "average-risk-score",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "sum(avg_risk_score)",
+                      "expression": "SUM(`avg_risk_score`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(avg_risk_score)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Average Risk Score",
+                "description": "Portfolio-wide"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 1,
+            "height": 2
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "location_page",
@@ -847,7 +1695,13 @@
         {
           "widget": {
             "name": "location_title",
-            "textbox_spec": "# Location Analysis\n\n**Powered by `market_performance_metrics` Metric View**\n\nGeographic distribution metrics are calculated from the centralized metric view, with dimensions for city, state, and region."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Location Analysis\n",
+                "\n",
+                "Geographic distribution metrics are calculated from the centralized metric view, with dimensions for city, state, and region."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -1017,36 +1871,173 @@
                 "columns": [
                   {
                     "fieldName": "city",
-                    "displayName": "City"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "City",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "state",
-                    "displayName": "State"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "State",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "lease_count",
-                    "displayName": "Leases"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Leases",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "total_sqft",
-                    "displayName": "Total Sqft"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Total Sqft",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "avg_rent_psf",
-                    "displayName": "Avg Rent PSF"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Avg Rent PSF",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "total_annual_rent",
-                    "displayName": "Annual Rent"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Annual Rent",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   }
                 ]
               },
-              "frame": {
-                "title": "Location Summary",
-                "showTitle": true,
-                "showDescription": true,
-                "description": "Aggregated from market_performance_metrics"
-              }
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
             }
           },
           "position": {
@@ -1056,7 +2047,8 @@
             "height": 5
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "all_leases_page",
@@ -1065,7 +2057,13 @@
         {
           "widget": {
             "name": "all_leases_title",
-            "textbox_spec": "# All Lease Details\n\n**Row-level detail from `silver_leases` table**\n\nThis view shows individual lease records. For aggregate analysis, the dashboard uses metric views."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# All Lease Details\n",
+                "\n",
+                "This view shows individual lease records. For aggregate analysis, the dashboard uses metric views."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -1131,48 +2129,378 @@
                 "columns": [
                   {
                     "fieldName": "tenant_name",
-                    "displayName": "Tenant"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Tenant",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "property_name",
-                    "displayName": "Property"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Property",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "market",
-                    "displayName": "Market"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Market",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "commencement_date",
-                    "displayName": "Commencement"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Commencement",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "expiration_date",
-                    "displayName": "Expiration"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Expiration",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "dateTimeFormat": "YYYY-MM-DD"
                   },
                   {
                     "fieldName": "base_rent_psf",
-                    "displayName": "Rent PSF"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Rent PSF",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "square_footage",
-                    "displayName": "Square Feet"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Square Feet",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "years_remaining",
-                    "displayName": "Years Left"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Years Left",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "status",
-                    "displayName": "Status"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Status",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   }
                 ]
               },
-              "frame": {
-                "title": "Lease Inventory",
-                "showTitle": true,
-                "showDescription": true,
-                "description": "All active leases sorted by expiration date"
-              }
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": [
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 100000,
+                  "title": "lease_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "asset_type",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 100003,
+                  "title": "asset_type",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "industry_sector",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 100005,
+                  "title": "industry_sector",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "estimated_annual_rent",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 100010,
+                  "title": "estimated_annual_rent",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "annual_escalation_pct",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 100011,
+                  "title": "annual_escalation_pct",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ]
             }
           },
           "position": {
@@ -1182,7 +2510,8 @@
             "height": 12
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "market_summary_page",
@@ -1191,7 +2520,13 @@
         {
           "widget": {
             "name": "market_title",
-            "textbox_spec": "# Market Summary\n\n**Powered by `market_performance_metrics` Metric View**\n\nMarket segment analysis using centralized metrics for WALT, rent PSF, and portfolio composition."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Market Summary\n",
+                "\n",
+                "Market segment analysis using centralized metrics for WALT, rent PSF, and portfolio composition."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -1228,23 +2563,23 @@
               "encodings": {
                 "x": {
                   "fieldName": "market",
+                  "displayName": "Market",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Market"
+                  }
                 },
                 "y": {
                   "fieldName": "lease_count",
+                  "displayName": "Lease Count",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Lease Count"
+                  }
                 }
               },
               "frame": {
                 "title": "Leases by Market",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(lease_count) by market"
               }
             }
@@ -1284,23 +2619,23 @@
               "encodings": {
                 "x": {
                   "fieldName": "market",
+                  "displayName": "Market",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Market"
+                  }
                 },
                 "y": {
                   "fieldName": "avg_rent_psf",
+                  "displayName": "Avg Rent PSF",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Avg Rent PSF"
+                  }
                 }
               },
               "frame": {
                 "title": "Average Rent by Market",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(avg_rent_psf) by market"
               }
             }
@@ -1340,23 +2675,23 @@
               "encodings": {
                 "x": {
                   "fieldName": "market",
+                  "displayName": "Market",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Market"
+                  }
                 },
                 "y": {
                   "fieldName": "walt_years",
+                  "displayName": "WALT (Years)",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "WALT (Years)"
+                  }
                 }
               },
               "frame": {
                 "title": "WALT by Market",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(walt_years) by market"
               }
             }
@@ -1378,12 +2713,12 @@
                   "datasetName": "market_summary_dataset",
                   "fields": [
                     {
-                      "name": "market",
-                      "expression": "`market`"
-                    },
-                    {
                       "name": "total_sqft",
                       "expression": "`total_sqft`"
+                    },
+                    {
+                      "name": "market",
+                      "expression": "`market`"
                     }
                   ],
                   "disaggregated": true
@@ -1391,25 +2726,28 @@
               }
             ],
             "spec": {
-              "version": 2,
+              "version": 3,
               "widgetType": "pie",
               "encodings": {
                 "angle": {
                   "fieldName": "total_sqft",
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Total Sqft"
                 },
                 "color": {
                   "fieldName": "market",
+                  "displayName": "Market",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Market"
+                  }
                 }
               },
               "frame": {
                 "title": "Square Footage Distribution",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_sqft) by market"
               }
             }
@@ -1466,36 +2804,173 @@
                 "columns": [
                   {
                     "fieldName": "market",
-                    "displayName": "Market"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Market",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "lease_count",
-                    "displayName": "Leases"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Leases",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "avg_rent_psf",
-                    "displayName": "Avg Rent PSF"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Avg Rent PSF",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "walt_years",
-                    "displayName": "WALT (Years)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "WALT (Years)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "total_sqft",
-                    "displayName": "Total Sqft"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Total Sqft",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "total_annual_rent",
-                    "displayName": "Annual Rent"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Annual Rent",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   }
                 ]
               },
-              "frame": {
-                "title": "Market Summary Table",
-                "showTitle": true,
-                "showDescription": true,
-                "description": "Aggregated from market_performance_metrics"
-              }
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
             }
           },
           "position": {
@@ -1505,7 +2980,8 @@
             "height": 4
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "landlords_page",
@@ -1514,7 +2990,13 @@
         {
           "widget": {
             "name": "landlords_title",
-            "textbox_spec": "# Landlord Profiles\n\n**Powered by `landlord_metrics` Metric View**\n\nAggregate landlord analytics from the centralized metric view with dimensions for company type, risk level, and news sentiment."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Landlord Profiles\n",
+                "\n",
+                "Aggregate landlord analytics from the centralized metric view with dimensions for company type, risk level, and news sentiment."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -1553,7 +3035,7 @@
               "frame": {
                 "title": "Total Landlords",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_landlords)"
               }
             }
@@ -1595,7 +3077,7 @@
               "frame": {
                 "title": "Avg Health Score",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(avg_health_score)"
               }
             }
@@ -1637,7 +3119,7 @@
               "frame": {
                 "title": "Low Risk Landlords",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(low_risk_count)"
               }
             }
@@ -1672,12 +3154,15 @@
               }
             ],
             "spec": {
-              "version": 2,
+              "version": 3,
               "widgetType": "pie",
               "encodings": {
                 "angle": {
                   "fieldName": "count",
-                  "displayName": "Count"
+                  "displayName": "Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
                 },
                 "color": {
                   "fieldName": "company_type",
@@ -1730,17 +3215,17 @@
               "encodings": {
                 "x": {
                   "fieldName": "sentiment",
+                  "displayName": "News Sentiment",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "News Sentiment"
+                  }
                 },
                 "y": {
                   "fieldName": "count",
+                  "displayName": "Count",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Count"
+                  }
                 }
               },
               "frame": {
@@ -1819,52 +3304,274 @@
                 "columns": [
                   {
                     "fieldName": "landlord_name",
-                    "displayName": "Name"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "company_type",
-                    "displayName": "Type"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Type",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "stock_ticker",
-                    "displayName": "Ticker"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Ticker",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "market_cap",
-                    "displayName": "Market Cap"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Market Cap",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "annual_revenue",
-                    "displayName": "Annual Revenue"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Annual Revenue",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "credit_rating",
-                    "displayName": "Credit Rating"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Credit Rating",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "total_properties",
-                    "displayName": "Properties"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Properties",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "financial_health_score",
-                    "displayName": "Health Score"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Health Score",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "0.0"
                   },
                   {
                     "fieldName": "bankruptcy_risk",
-                    "displayName": "Risk"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Risk",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "recent_news_sentiment",
-                    "displayName": "Sentiment"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Sentiment",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   }
                 ]
               },
-              "frame": {
-                "title": "Landlord Profiles",
-                "showTitle": true,
-                "showDescription": true,
-                "description": "Detail view from landlords table"
-              }
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
             }
           },
           "position": {
@@ -1874,7 +3581,8 @@
             "height": 6
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "tenants_page",
@@ -1883,7 +3591,13 @@
         {
           "widget": {
             "name": "tenants_title",
-            "textbox_spec": "# Tenant Profiles\n\n**Powered by `tenant_metrics` Metric View**\n\nAggregate tenant analytics from the centralized metric view with dimensions for industry, company type, risk level, and company size."
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Tenant Profiles\n",
+                "\n",
+                "Aggregate tenant analytics from the centralized metric view with dimensions for industry, company type, risk level, and company size."
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -1922,15 +3636,15 @@
               "frame": {
                 "title": "Total Tenants",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_tenants)"
               }
             }
           },
           "position": {
-            "x": 0,
+            "x": 1,
             "y": 2,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -1964,15 +3678,15 @@
               "frame": {
                 "title": "Avg Health Score",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(avg_health_score)"
               }
             }
           },
           "position": {
-            "x": 2,
+            "x": 3,
             "y": 2,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -2006,7 +3720,7 @@
               "frame": {
                 "title": "Growing Companies",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(growing_companies)"
               }
             }
@@ -2014,7 +3728,7 @@
           "position": {
             "x": 4,
             "y": 2,
-            "width": 2,
+            "width": 1,
             "height": 2
           }
         },
@@ -2028,12 +3742,12 @@
                   "datasetName": "tenants_by_industry_dataset",
                   "fields": [
                     {
-                      "name": "industry_sector",
-                      "expression": "`industry_sector`"
-                    },
-                    {
                       "name": "count",
                       "expression": "`count`"
+                    },
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
                     }
                   ],
                   "disaggregated": true
@@ -2046,23 +3760,23 @@
               "encodings": {
                 "x": {
                   "fieldName": "count",
+                  "displayName": "Count",
                   "scale": {
                     "type": "quantitative"
-                  },
-                  "displayName": "Count"
+                  }
                 },
                 "y": {
                   "fieldName": "industry_sector",
+                  "displayName": "Industry",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Industry"
+                  }
                 }
               },
               "frame": {
                 "title": "Tenants by Industry",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_tenants) by industry_sector"
               }
             }
@@ -2084,12 +3798,12 @@
                   "datasetName": "tenants_by_size_dataset",
                   "fields": [
                     {
-                      "name": "company_size",
-                      "expression": "`company_size`"
-                    },
-                    {
                       "name": "count",
                       "expression": "`count`"
+                    },
+                    {
+                      "name": "company_size",
+                      "expression": "`company_size`"
                     }
                   ],
                   "disaggregated": true
@@ -2097,25 +3811,28 @@
               }
             ],
             "spec": {
-              "version": 2,
+              "version": 3,
               "widgetType": "pie",
               "encodings": {
                 "angle": {
                   "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
                   "displayName": "Count"
                 },
                 "color": {
                   "fieldName": "company_size",
+                  "displayName": "Company Size",
                   "scale": {
                     "type": "categorical"
-                  },
-                  "displayName": "Company Size"
+                  }
                 }
               },
               "frame": {
-                "title": "Tenants by Company Size",
+                "title": "Tenants by Company Size (Employees)",
                 "showTitle": true,
-                "showDescription": true,
+                "showDescription": false,
                 "description": "MEASURE(total_tenants) by company_size"
               }
             }
@@ -2188,62 +3905,467 @@
                 "columns": [
                   {
                     "fieldName": "tenant_name",
-                    "displayName": "Name"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "industry_sector",
-                    "displayName": "Industry"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Industry",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "company_type",
-                    "displayName": "Type"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Type",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "stock_ticker",
-                    "displayName": "Ticker"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Ticker",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "annual_revenue",
-                    "displayName": "Annual Revenue"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Annual Revenue",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "$#,##0.00"
                   },
                   {
                     "fieldName": "employee_count",
-                    "displayName": "Employees"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Employees",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "#,##0"
                   },
                   {
                     "fieldName": "credit_rating",
-                    "displayName": "Credit Rating"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Credit Rating",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "financial_health_score",
-                    "displayName": "Health Score"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Health Score",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "0.0"
                   },
                   {
                     "fieldName": "bankruptcy_risk",
-                    "displayName": "Risk"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Risk",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
                   },
                   {
                     "fieldName": "revenue_growth_pct",
-                    "displayName": "Growth %"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Growth %",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "numberFormat": "0.00%"
                   }
                 ]
               },
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "invisibleColumns": []
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "total-revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "total_revenue",
+                      "expression": "`total_revenue`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_revenue",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
               "frame": {
-                "title": "Tenant Profiles",
                 "showTitle": true,
-                "showDescription": true,
-                "description": "Detail view from tenants table"
+                "title": "Total Revenue"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "risk-distribution-high-medium-low-tenants",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "high_risk_count",
+                      "expression": "`high_risk_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "high_risk_count"
+                }
+              },
+              "frame": {
+                "title": "High Risk Tenants",
+                "showTitle": true
+              },
+              "style": {
+                "fontColor": {
+                  "light": "#F00E0E"
+                }
               }
             }
           },
           "position": {
             "x": 0,
             "y": 9,
-            "width": 6,
-            "height": 6
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "e664af8d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "medium_risk_count",
+                      "expression": "`medium_risk_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "medium_risk_count"
+                }
+              },
+              "frame": {
+                "title": "Medium Risk Tenants",
+                "showTitle": true
+              },
+              "style": {
+                "fontColor": {
+                  "light": "#F0930E"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 9,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "fd6a52a7",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "low_risk_count",
+                      "expression": "`low_risk_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "low_risk_count"
+                }
+              },
+              "frame": {
+                "title": "Low Risk Tenants",
+                "showTitle": true
+              },
+              "style": {
+                "fontColor": {
+                  "light": "#3E9ACA"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 9,
+            "width": 2,
+            "height": 3
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     },
     {
       "name": "glossary_page",
@@ -2252,7 +4374,68 @@
         {
           "widget": {
             "name": "glossary_content",
-            "textbox_spec": "# Glossary of Terms\n\n**Key metrics and definitions for commercial real estate lease analysis**\n\n---\n\n## PSF - Price Per Square Foot\n\nA standard commercial real estate metric that represents the annual rental cost divided by the total rentable square footage of a space. PSF allows for easy comparison of rental rates across properties of different sizes.\n\n**Example:** A lease with $50 PSF on a 10,000 sq ft space would have an annual rent of $500,000.\n\n**Formula:** `PSF = Annual Base Rent \u00f7 Rentable Square Feet`\n\n**Metric View:** `portfolio_lease_metrics.avg_rent_psf`\n\n---\n\n## WALT - Weighted Average Lease Term\n\nA key portfolio metric that calculates the average remaining lease duration, weighted by each lease's contribution to total rental income or square footage. WALT helps investors understand the stability of cash flows and the timeline for potential vacancy risk.\n\nA higher WALT generally indicates more stable, long-term income streams.\n\n**Formula:** `WALT = \u03a3(Remaining Term \u00d7 Annual Rent) \u00f7 Total Annual Rent`\n\n**Metric View:** `market_performance_metrics.walt_years`\n\n---\n\n## Risk Score - Tenant Credit & Lease Risk Assessment\n\nA composite score (0-100) that evaluates the overall risk profile of a lease or tenant. The score is calculated using four weighted components:\n\n| Component | Weight | Metric View Measure |\n|-----------|--------|--------------------|\n| Rollover Risk | 40% | `avg_rollover_risk` |\n| Escalation Risk | 20% | `avg_escalation_risk` |\n| Industry Risk | 20% | `avg_industry_risk` |\n| Concentration Risk | 20% | `avg_concentration_risk` |\n\n**Metric View:** `risk_assessment_metrics`\n\n**Risk Levels:**\n- **Critical (80-100):** Immediate attention required\n- **High (60-79):** Priority monitoring\n- **Medium (40-59):** Standard monitoring\n- **Low (20-39):** Minimal concern\n- **Minimal (0-19):** Stable, low risk\n\n---\n\n## Financial Health Score\n\nA deterministic score (1-10) calculated from enriched company data including:\n- Credit rating\n- Market capitalization / Total assets\n- Debt-to-equity ratio\n- Revenue and profitability metrics\n- Bankruptcy risk assessment\n- Recent news sentiment\n\n**Metric Views:** `landlord_metrics.avg_health_score`, `tenant_metrics.avg_health_score`\n\n---\n\n## Available Metric Views\n\nThis dashboard uses the following centralized metric views:\n\n| Metric View | Description |\n|-------------|-------------|\n| `portfolio_lease_metrics` | Core lease KPIs with market/location dimensions |\n| `risk_assessment_metrics` | Risk scoring with industry/status dimensions |\n| `landlord_metrics` | Landlord profiles with company type/risk dimensions |\n| `tenant_metrics` | Tenant profiles with industry/size dimensions |\n| `market_performance_metrics` | Geographic and sector performance |\n\n---\n\n## Common Terms\n\n| Term | Definition |\n|------|------------|\n| **NNN (Triple Net)** | Tenant pays all property expenses including taxes, insurance, and maintenance |\n| **Gross Lease** | Landlord pays all operating expenses |\n| **Escalation** | Annual rent increase, typically tied to CPI or fixed percentage |\n| **CAM** | Common Area Maintenance charges |\n| **REIT** | Real Estate Investment Trust |\n| **NOI** | Net Operating Income |"
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Glossary of Terms\n",
+                "\n",
+                "**Key metrics and definitions for commercial real estate lease analysis**\n",
+                "\n",
+                "---\n",
+                "\n",
+                "## PSF - Price Per Square Foot\n",
+                "\n",
+                "A standard commercial real estate metric that represents the annual rental cost divided by the total rentable square footage of a space. PSF allows for easy comparison of rental rates across properties of different sizes.\n",
+                "\n",
+                "**Example:** A lease with $50 PSF on a 10,000 sq ft space would have an annual rent of $500,000.\n",
+                "\n",
+                "**Formula:** `PSF = Annual Base Rent ÷ Rentable Square Feet`\n",
+                "\n",
+                "---\n",
+                "\n",
+                "## WALT - Weighted Average Lease Term\n",
+                "\n",
+                "A key portfolio metric that calculates the average remaining lease duration, weighted by each lease's contribution to total rental income or square footage. WALT helps investors understand the stability of cash flows and the timeline for potential vacancy risk.\n",
+                "\n",
+                "A higher WALT generally indicates more stable, long-term income streams.\n",
+                "\n",
+                "**Formula:** `WALT = Σ(Remaining Term × Annual Rent) ÷ Total Annual Rent`\n",
+                "\n",
+                "---\n",
+                "\n",
+                "## Risk Score - Tenant Credit & Lease Risk Assessment\n",
+                "\n",
+                "A composite score (0-100) that evaluates the overall risk profile of a lease or tenant. The score is calculated using four weighted components:\n",
+                "\n",
+                "**Rollover Risk:** 40%<br>**Escalation Risk:** 20%<br>**Industry Risk:** 20%<br>**Concentration Risk:** 20%\n",
+                "\n",
+                "**Risk Levels:**\n",
+                "\n",
+                "- **Critical (80-100):** Immediate attention required\n",
+                "- **High (60-79):** Priority monitoring\n",
+                "- **Medium (40-59):** Standard monitoring\n",
+                "- **Low (20-39):** Minimal concern\n",
+                "- **Minimal (0-19):** Stable, low risk\n",
+                "\n",
+                "---\n",
+                "\n",
+                "## Financial Health Score\n",
+                "\n",
+                "A deterministic score (1-10) calculated from enriched company data including:\n",
+                "\n",
+                "- Credit rating\n",
+                "- Market capitalization / Total assets\n",
+                "- Debt-to-equity ratio\n",
+                "- Revenue and profitability metrics\n",
+                "- Bankruptcy risk assessment\n",
+                "- Recent news sentiment\n",
+                "\n",
+                "---\n",
+                "\n",
+                "## Common Terms\n",
+                "\n",
+                "<br>- **NNN (Triple Net):&#32;** Tenant pays all property expenses including taxes, insurance, and maintenance<br>- **Gross Lease:** Landlord pays all operating expenses<br>- **Escalation:** Annual rent increase, typically tied to CPI or fixed percentage<br>- **CAM:** Common Area Maintenance charges<br>- **REIT:&#32;** Real Estate Investment Trust<br>- **NOI:** Net Operating Income"
+              ]
+            }
           },
           "position": {
             "x": 0,
@@ -2261,7 +4444,14 @@
             "height": 22
           }
         }
-      ]
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
     }
-  ]
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
 }
