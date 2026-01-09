@@ -1,0 +1,2267 @@
+{
+  "datasets": [
+    {
+      "name": "kpis_dataset",
+      "displayName": "Portfolio KPIs (from Metric Views)",
+      "query": "WITH lease_metrics AS (\n    SELECT \n        MEASURE(total_leases) as total_leases,\n        MEASURE(avg_rent_psf) as avg_rent_psf,\n        MEASURE(avg_years_remaining) as portfolio_walt,\n        MEASURE(expiring_365_days) as expiring_12_months\n    FROM ${catalog}.${schema}.portfolio_lease_metrics\n),\nrisk_metrics AS (\n    SELECT MEASURE(avg_risk_score) as avg_risk_score\n    FROM ${catalog}.${schema}.risk_assessment_metrics\n),\nentity_counts AS (\n    SELECT \n        COUNT(DISTINCT market) as markets_count,\n        COUNT(DISTINCT city) as properties_count\n    FROM ${catalog}.${schema}.portfolio_lease_metrics\n    GROUP BY ALL\n)\nSELECT \n    l.total_leases,\n    e.properties_count as total_properties,\n    l.total_leases as total_tenants,\n    e.markets_count,\n    l.avg_rent_psf,\n    l.portfolio_walt,\n    COALESCE(r.avg_risk_score, 0) as avg_risk_score,\n    l.expiring_12_months\nFROM lease_metrics l\nCROSS JOIN risk_metrics r\nCROSS JOIN entity_counts e"
+    },
+    {
+      "name": "recent_extractions_dataset",
+      "displayName": "Recent Extractions",
+      "query": "SELECT \n    lease_id,\n    CONCAT(tenant_name, '_lease.pdf') as filename,\n    validation_status,\n    base_rent_psf,\n    verified_at\nFROM ${catalog}.${schema}.silver_leases\nWHERE tenant_name IS NOT NULL\nORDER BY verified_at DESC\nLIMIT 10"
+    },
+    {
+      "name": "all_leases_dataset",
+      "displayName": "All Leases (Detail)",
+      "query": "SELECT \n    lease_id,\n    COALESCE(property_id, 'Unknown Property') as property_name,\n    COALESCE(industry_sector, 'Unknown') as market,\n    COALESCE(lease_type, 'Unknown') as asset_type,\n    tenant_name,\n    industry_sector,\n    lease_start_date as commencement_date,\n    lease_end_date as expiration_date,\n    base_rent_psf,\n    square_footage,\n    estimated_annual_rent,\n    annual_escalation_pct,\n    validation_status as status,\n    ROUND(DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25, 1) as years_remaining\nFROM ${catalog}.${schema}.silver_leases\nWHERE tenant_name IS NOT NULL\nORDER BY lease_end_date ASC"
+    },
+    {
+      "name": "market_summary_dataset",
+      "displayName": "Market Summary (from Metric View)",
+      "query": "SELECT \n    market,\n    MEASURE(lease_count) as lease_count,\n    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n    ROUND(MEASURE(walt_years), 2) as walt_years,\n    MEASURE(total_sqft) as total_sqft,\n    MEASURE(total_annual_rent) as total_annual_rent\nFROM ${catalog}.${schema}.market_performance_metrics\nGROUP BY market\nORDER BY lease_count DESC"
+    },
+    {
+      "name": "location_summary_dataset",
+      "displayName": "Location Summary (from Metric View)",
+      "query": "SELECT \n    city,\n    state,\n    MEASURE(lease_count) as lease_count,\n    MEASURE(total_sqft) as total_sqft,\n    ROUND(MEASURE(avg_rent_psf), 2) as avg_rent_psf,\n    MEASURE(total_annual_rent) as total_annual_rent\nFROM ${catalog}.${schema}.market_performance_metrics\nGROUP BY city, state\nORDER BY lease_count DESC"
+    },
+    {
+      "name": "risk_assessment_dataset",
+      "displayName": "Risk Assessment (Detail)",
+      "query": "SELECT \n    lease_id,\n    tenant_name,\n    property_id,\n    industry_sector,\n    lease_end_date,\n    annual_escalation_pct,\n    estimated_annual_rent,\n    square_footage,\n    days_to_expiry,\n    sector_risk_base,\n    portfolio_concentration_pct,\n    rollover_score,\n    escalation_risk_score,\n    concentration_risk_score,\n    lease_status,\n    total_risk_score\nFROM ${catalog}.${schema}.gold_lease_risk_scores\nWHERE total_risk_score IS NOT NULL\nORDER BY total_risk_score DESC\nLIMIT 100"
+    },
+    {
+      "name": "risk_distribution_dataset",
+      "displayName": "Risk Distribution (from Metric View)",
+      "query": "SELECT \n    risk_category,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(total_leases) * 100.0 / SUM(MEASURE(total_leases)) OVER (), 1) as percentage\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY risk_category\nORDER BY \n    CASE risk_category\n        WHEN 'Critical (80-100)' THEN 1\n        WHEN 'High (60-79)' THEN 2\n        WHEN 'Medium (40-59)' THEN 3\n        WHEN 'Low (20-39)' THEN 4\n        ELSE 5\n    END"
+    },
+    {
+      "name": "risk_by_status_dataset",
+      "displayName": "Risk by Status (from Metric View)",
+      "query": "SELECT \n    lease_status,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(total_rent_at_risk) as total_rent_at_risk\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY lease_status\nORDER BY avg_risk_score DESC"
+    },
+    {
+      "name": "risk_by_industry_dataset",
+      "displayName": "Risk by Industry (from Metric View)",
+      "query": "SELECT \n    industry_sector,\n    MEASURE(total_leases) as lease_count,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(total_rent_at_risk) as total_rent\nFROM ${catalog}.${schema}.risk_assessment_metrics\nGROUP BY industry_sector\nORDER BY avg_risk_score DESC"
+    },
+    {
+      "name": "risk_summary_dataset",
+      "displayName": "Risk Summary KPIs (from Metric View)",
+      "query": "SELECT \n    MEASURE(critical_lease_count) as critical_leases,\n    MEASURE(high_priority_count) as high_priority_leases,\n    ROUND(MEASURE(avg_risk_score), 1) as avg_risk_score,\n    MEASURE(high_risk_rent) as revenue_at_risk\nFROM ${catalog}.${schema}.risk_assessment_metrics"
+    },
+    {
+      "name": "top_risky_leases_dataset",
+      "displayName": "Top Risky Leases (Detail)",
+      "query": "SELECT \n    tenant_name,\n    industry_sector,\n    lease_status,\n    days_to_expiry,\n    estimated_annual_rent,\n    portfolio_concentration_pct,\n    total_risk_score\nFROM ${catalog}.${schema}.gold_lease_risk_scores\nWHERE total_risk_score IS NOT NULL\nORDER BY total_risk_score DESC\nLIMIT 10"
+    },
+    {
+      "name": "landlords_dataset",
+      "displayName": "Landlords (Detail)",
+      "query": "SELECT \n    landlord_id,\n    landlord_name,\n    landlord_address,\n    company_type,\n    stock_ticker,\n    market_cap,\n    total_assets,\n    credit_rating,\n    credit_rating_agency,\n    annual_revenue,\n    net_operating_income,\n    debt_to_equity_ratio,\n    total_properties,\n    total_square_footage,\n    primary_property_types,\n    geographic_focus,\n    financial_health_score,\n    bankruptcy_risk,\n    recent_news_sentiment,\n    enrichment_source,\n    last_enriched_at\nFROM ${catalog}.${schema}.landlords\nORDER BY landlord_name"
+    },
+    {
+      "name": "landlords_summary_dataset",
+      "displayName": "Landlords Summary (from Metric View)",
+      "query": "SELECT \n    MEASURE(total_landlords) as total_landlords,\n    MEASURE(total_revenue) as total_revenue,\n    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n    MEASURE(low_risk_count) as low_risk_count,\n    MEASURE(medium_risk_count) as medium_risk_count,\n    MEASURE(high_risk_count) as high_risk_count\nFROM ${catalog}.${schema}.landlord_metrics"
+    },
+    {
+      "name": "landlords_by_type_dataset",
+      "displayName": "Landlords by Type (from Metric View)",
+      "query": "SELECT \n    company_type,\n    MEASURE(total_landlords) as count\nFROM ${catalog}.${schema}.landlord_metrics\nGROUP BY company_type\nORDER BY MEASURE(total_landlords) DESC"
+    },
+    {
+      "name": "landlords_by_sentiment_dataset",
+      "displayName": "Landlords by Sentiment (from Metric View)",
+      "query": "SELECT \n    news_sentiment as sentiment,\n    MEASURE(total_landlords) as count\nFROM ${catalog}.${schema}.landlord_metrics\nGROUP BY news_sentiment\nORDER BY \n    CASE news_sentiment\n        WHEN 'POSITIVE' THEN 1\n        WHEN 'NEUTRAL' THEN 2\n        WHEN 'NEGATIVE' THEN 3\n        ELSE 4\n    END"
+    },
+    {
+      "name": "tenants_dataset",
+      "displayName": "Tenants (Detail)",
+      "query": "SELECT \n    tenant_id,\n    tenant_name,\n    tenant_address,\n    industry_sector,\n    company_type,\n    parent_company,\n    stock_ticker,\n    founding_year,\n    employee_count,\n    headquarters_location,\n    market_cap,\n    annual_revenue,\n    net_income,\n    revenue_growth_pct,\n    profit_margin_pct,\n    credit_rating,\n    financial_health_score,\n    bankruptcy_risk,\n    industry_risk,\n    recent_news_sentiment,\n    litigation_flag,\n    years_in_business\nFROM ${catalog}.${schema}.tenants\nORDER BY tenant_name"
+    },
+    {
+      "name": "tenants_summary_dataset",
+      "displayName": "Tenants Summary (from Metric View)",
+      "query": "SELECT \n    MEASURE(total_tenants) as total_tenants,\n    MEASURE(total_revenue) as total_revenue,\n    ROUND(MEASURE(avg_health_score), 1) as avg_health_score,\n    MEASURE(growing_companies) as growing_companies,\n    MEASURE(low_risk_count) as low_risk_count,\n    MEASURE(high_risk_count) as high_risk_count\nFROM ${catalog}.${schema}.tenant_metrics"
+    },
+    {
+      "name": "tenants_by_industry_dataset",
+      "displayName": "Tenants by Industry (from Metric View)",
+      "query": "SELECT \n    industry_sector,\n    MEASURE(total_tenants) as count\nFROM ${catalog}.${schema}.tenant_metrics\nGROUP BY industry_sector\nORDER BY MEASURE(total_tenants) DESC\nLIMIT 10"
+    },
+    {
+      "name": "tenants_by_size_dataset",
+      "displayName": "Tenants by Size (from Metric View)",
+      "query": "SELECT \n    company_size,\n    MEASURE(total_tenants) as count\nFROM ${catalog}.${schema}.tenant_metrics\nGROUP BY company_size\nORDER BY \n    CASE company_size\n        WHEN 'Small (<100)' THEN 1\n        WHEN 'Medium (100-1K)' THEN 2\n        WHEN 'Large (1K-10K)' THEN 3\n        ELSE 4\n    END"
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview_page",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "overview_title",
+            "textbox_spec": "# Lease Portfolio Analytics\n\n**Real-time insights from Databricks Unity Catalog**\n\nThis dashboard uses **Databricks Metric Views** for centralized, governed metric calculations. All aggregate KPIs are computed from reusable metric definitions ensuring consistency across all analytics."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "total_leases_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "total_leases",
+                      "expression": "`total_leases`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_leases",
+                  "displayName": "Total Leases"
+                }
+              },
+              "frame": {
+                "title": "Total Leases",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From portfolio_lease_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "avg_rent_psf_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "avg_rent_psf",
+                      "expression": "`avg_rent_psf`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_rent_psf",
+                  "displayName": "Avg. Rent PSF"
+                }
+              },
+              "frame": {
+                "title": "Avg. Rent PSF",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From portfolio_lease_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "portfolio_walt_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "portfolio_walt",
+                      "expression": "`portfolio_walt`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "portfolio_walt",
+                  "displayName": "Portfolio WALT (Years)"
+                }
+              },
+              "frame": {
+                "title": "Portfolio WALT",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From portfolio_lease_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "avg_risk_score_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "avg_risk_score",
+                      "expression": "`avg_risk_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_risk_score",
+                  "displayName": "Avg. Risk Score"
+                }
+              },
+              "frame": {
+                "title": "Avg. Risk Score",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From risk_assessment_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "expiring_12mo_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "expiring_12_months",
+                      "expression": "`expiring_12_months`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "expiring_12_months",
+                  "displayName": "Expiring in 12 Months"
+                }
+              },
+              "frame": {
+                "title": "Expiring Soon",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From portfolio_lease_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 4,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "markets_count_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "kpis_dataset",
+                  "fields": [
+                    {
+                      "name": "markets_count",
+                      "expression": "`markets_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "markets_count",
+                  "displayName": "Markets"
+                }
+              },
+              "frame": {
+                "title": "Markets",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Distinct industry sectors"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 4,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "recent_extractions_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "recent_extractions_dataset",
+                  "fields": [
+                    {
+                      "name": "filename",
+                      "expression": "`filename`"
+                    },
+                    {
+                      "name": "validation_status",
+                      "expression": "`validation_status`"
+                    },
+                    {
+                      "name": "base_rent_psf",
+                      "expression": "`base_rent_psf`"
+                    },
+                    {
+                      "name": "verified_at",
+                      "expression": "`verified_at`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "filename",
+                    "displayName": "Document"
+                  },
+                  {
+                    "fieldName": "validation_status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "base_rent_psf",
+                    "displayName": "Rent PSF"
+                  },
+                  {
+                    "fieldName": "verified_at",
+                    "displayName": "Verified Date"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Recent Extractions",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Latest lease documents processed"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "risk_assessment_page",
+      "displayName": "Risk Assessment",
+      "layout": [
+        {
+          "widget": {
+            "name": "risk_title",
+            "textbox_spec": "# Risk Assessment\n\n**Powered by `risk_assessment_metrics` Metric View**\n\nAll risk metrics are calculated from the centralized metric view definition, ensuring consistent scoring methodology across all reports and dashboards.\n\n**Risk Score Components:**\n- Rollover Risk (40%): Days until lease expiration\n- Escalation Risk (20%): Rent escalation vs inflation\n- Industry Risk (20%): Sector-based default risk\n- Concentration Risk (20%): Portfolio exposure"
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "critical_leases_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "critical_leases",
+                      "expression": "`critical_leases`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "critical_leases",
+                  "displayName": "Critical Leases"
+                }
+              },
+              "frame": {
+                "title": "Critical Leases",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(critical_lease_count)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "high_priority_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "high_priority_leases",
+                      "expression": "`high_priority_leases`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "high_priority_leases",
+                  "displayName": "High Priority"
+                }
+              },
+              "frame": {
+                "title": "High Priority",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(high_priority_count)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 3,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "revenue_at_risk_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "revenue_at_risk",
+                      "expression": "`revenue_at_risk`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "revenue_at_risk",
+                  "displayName": "Revenue at Risk"
+                }
+              },
+              "frame": {
+                "title": "Revenue at Risk",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(high_risk_rent)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_distribution_pie",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_distribution_dataset",
+                  "fields": [
+                    {
+                      "name": "risk_category",
+                      "expression": "`risk_category`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "lease_count",
+                  "displayName": "Lease Count"
+                },
+                "color": {
+                  "fieldName": "risk_category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Risk Category"
+                }
+              },
+              "frame": {
+                "title": "Risk Distribution",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "From risk_assessment_metrics dimension"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_distribution_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_distribution_dataset",
+                  "fields": [
+                    {
+                      "name": "risk_category",
+                      "expression": "`risk_category`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "risk_category",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Risk Category"
+                },
+                "y": {
+                  "fieldName": "lease_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Lease Count"
+                }
+              },
+              "frame": {
+                "title": "Risk Categories",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_leases) by risk_category"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "risk_by_industry_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "risk_by_industry_dataset",
+                  "fields": [
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
+                    },
+                    {
+                      "name": "avg_risk_score",
+                      "expression": "`avg_risk_score`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg_risk_score",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg Risk Score"
+                },
+                "y": {
+                  "fieldName": "industry_sector",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Industry"
+                }
+              },
+              "frame": {
+                "title": "Risk by Industry Sector",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(avg_risk_score) by industry_sector"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "top_risky_leases_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_risky_leases_dataset",
+                  "fields": [
+                    {
+                      "name": "tenant_name",
+                      "expression": "`tenant_name`"
+                    },
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
+                    },
+                    {
+                      "name": "lease_status",
+                      "expression": "`lease_status`"
+                    },
+                    {
+                      "name": "days_to_expiry",
+                      "expression": "`days_to_expiry`"
+                    },
+                    {
+                      "name": "estimated_annual_rent",
+                      "expression": "`estimated_annual_rent`"
+                    },
+                    {
+                      "name": "portfolio_concentration_pct",
+                      "expression": "`portfolio_concentration_pct`"
+                    },
+                    {
+                      "name": "total_risk_score",
+                      "expression": "`total_risk_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "tenant_name",
+                    "displayName": "Tenant"
+                  },
+                  {
+                    "fieldName": "industry_sector",
+                    "displayName": "Industry"
+                  },
+                  {
+                    "fieldName": "lease_status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "days_to_expiry",
+                    "displayName": "Days to Expiry"
+                  },
+                  {
+                    "fieldName": "estimated_annual_rent",
+                    "displayName": "Annual Rent"
+                  },
+                  {
+                    "fieldName": "portfolio_concentration_pct",
+                    "displayName": "Concentration %"
+                  },
+                  {
+                    "fieldName": "total_risk_score",
+                    "displayName": "Risk Score"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Top 10 Highest Risk Leases",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Detail view from gold_lease_risk_scores"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "location_page",
+      "displayName": "Location Analysis",
+      "layout": [
+        {
+          "widget": {
+            "name": "location_title",
+            "textbox_spec": "# Location Analysis\n\n**Powered by `market_performance_metrics` Metric View**\n\nGeographic distribution metrics are calculated from the centralized metric view, with dimensions for city, state, and region."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "location_by_city_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "location_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    },
+                    {
+                      "name": "total_sqft",
+                      "expression": "`total_sqft`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Lease Count"
+                },
+                "y": {
+                  "fieldName": "city",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "City"
+                }
+              },
+              "frame": {
+                "title": "Leases by City",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(lease_count) by city"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "sqft_by_city_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "location_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "total_sqft",
+                      "expression": "`total_sqft`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "total_sqft",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total Square Feet"
+                },
+                "y": {
+                  "fieldName": "city",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "City"
+                }
+              },
+              "frame": {
+                "title": "Square Footage by City",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_sqft) by city"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "location_details_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "location_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "city",
+                      "expression": "`city`"
+                    },
+                    {
+                      "name": "state",
+                      "expression": "`state`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    },
+                    {
+                      "name": "total_sqft",
+                      "expression": "`total_sqft`"
+                    },
+                    {
+                      "name": "avg_rent_psf",
+                      "expression": "`avg_rent_psf`"
+                    },
+                    {
+                      "name": "total_annual_rent",
+                      "expression": "`total_annual_rent`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "city",
+                    "displayName": "City"
+                  },
+                  {
+                    "fieldName": "state",
+                    "displayName": "State"
+                  },
+                  {
+                    "fieldName": "lease_count",
+                    "displayName": "Leases"
+                  },
+                  {
+                    "fieldName": "total_sqft",
+                    "displayName": "Total Sqft"
+                  },
+                  {
+                    "fieldName": "avg_rent_psf",
+                    "displayName": "Avg Rent PSF"
+                  },
+                  {
+                    "fieldName": "total_annual_rent",
+                    "displayName": "Annual Rent"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Location Summary",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Aggregated from market_performance_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "all_leases_page",
+      "displayName": "All Leases",
+      "layout": [
+        {
+          "widget": {
+            "name": "all_leases_title",
+            "textbox_spec": "# All Lease Details\n\n**Row-level detail from `silver_leases` table**\n\nThis view shows individual lease records. For aggregate analysis, the dashboard uses metric views."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "all_leases_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "all_leases_dataset",
+                  "fields": [
+                    {
+                      "name": "tenant_name",
+                      "expression": "`tenant_name`"
+                    },
+                    {
+                      "name": "property_name",
+                      "expression": "`property_name`"
+                    },
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "commencement_date",
+                      "expression": "`commencement_date`"
+                    },
+                    {
+                      "name": "expiration_date",
+                      "expression": "`expiration_date`"
+                    },
+                    {
+                      "name": "base_rent_psf",
+                      "expression": "`base_rent_psf`"
+                    },
+                    {
+                      "name": "square_footage",
+                      "expression": "`square_footage`"
+                    },
+                    {
+                      "name": "years_remaining",
+                      "expression": "`years_remaining`"
+                    },
+                    {
+                      "name": "status",
+                      "expression": "`status`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "tenant_name",
+                    "displayName": "Tenant"
+                  },
+                  {
+                    "fieldName": "property_name",
+                    "displayName": "Property"
+                  },
+                  {
+                    "fieldName": "market",
+                    "displayName": "Market"
+                  },
+                  {
+                    "fieldName": "commencement_date",
+                    "displayName": "Commencement"
+                  },
+                  {
+                    "fieldName": "expiration_date",
+                    "displayName": "Expiration"
+                  },
+                  {
+                    "fieldName": "base_rent_psf",
+                    "displayName": "Rent PSF"
+                  },
+                  {
+                    "fieldName": "square_footage",
+                    "displayName": "Square Feet"
+                  },
+                  {
+                    "fieldName": "years_remaining",
+                    "displayName": "Years Left"
+                  },
+                  {
+                    "fieldName": "status",
+                    "displayName": "Status"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Lease Inventory",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "All active leases sorted by expiration date"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 12
+          }
+        }
+      ]
+    },
+    {
+      "name": "market_summary_page",
+      "displayName": "Market Summary",
+      "layout": [
+        {
+          "widget": {
+            "name": "market_title",
+            "textbox_spec": "# Market Summary\n\n**Powered by `market_performance_metrics` Metric View**\n\nMarket segment analysis using centralized metrics for WALT, rent PSF, and portfolio composition."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "market_lease_count_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "market_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market"
+                },
+                "y": {
+                  "fieldName": "lease_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Lease Count"
+                }
+              },
+              "frame": {
+                "title": "Leases by Market",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(lease_count) by market"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "market_rent_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "market_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "avg_rent_psf",
+                      "expression": "`avg_rent_psf`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market"
+                },
+                "y": {
+                  "fieldName": "avg_rent_psf",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg Rent PSF"
+                }
+              },
+              "frame": {
+                "title": "Average Rent by Market",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(avg_rent_psf) by market"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "market_walt_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "market_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "walt_years",
+                      "expression": "`walt_years`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market"
+                },
+                "y": {
+                  "fieldName": "walt_years",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "WALT (Years)"
+                }
+              },
+              "frame": {
+                "title": "WALT by Market",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(walt_years) by market"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "market_sqft_pie",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "market_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "total_sqft",
+                      "expression": "`total_sqft`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "total_sqft",
+                  "displayName": "Total Sqft"
+                },
+                "color": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market"
+                }
+              },
+              "frame": {
+                "title": "Square Footage Distribution",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_sqft) by market"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 7,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "market_details_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "market_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "lease_count",
+                      "expression": "`lease_count`"
+                    },
+                    {
+                      "name": "avg_rent_psf",
+                      "expression": "`avg_rent_psf`"
+                    },
+                    {
+                      "name": "walt_years",
+                      "expression": "`walt_years`"
+                    },
+                    {
+                      "name": "total_sqft",
+                      "expression": "`total_sqft`"
+                    },
+                    {
+                      "name": "total_annual_rent",
+                      "expression": "`total_annual_rent`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "market",
+                    "displayName": "Market"
+                  },
+                  {
+                    "fieldName": "lease_count",
+                    "displayName": "Leases"
+                  },
+                  {
+                    "fieldName": "avg_rent_psf",
+                    "displayName": "Avg Rent PSF"
+                  },
+                  {
+                    "fieldName": "walt_years",
+                    "displayName": "WALT (Years)"
+                  },
+                  {
+                    "fieldName": "total_sqft",
+                    "displayName": "Total Sqft"
+                  },
+                  {
+                    "fieldName": "total_annual_rent",
+                    "displayName": "Annual Rent"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Market Summary Table",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Aggregated from market_performance_metrics"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "landlords_page",
+      "displayName": "Landlords",
+      "layout": [
+        {
+          "widget": {
+            "name": "landlords_title",
+            "textbox_spec": "# Landlord Profiles\n\n**Powered by `landlord_metrics` Metric View**\n\nAggregate landlord analytics from the centralized metric view with dimensions for company type, risk level, and news sentiment."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "total_landlords_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "total_landlords",
+                      "expression": "`total_landlords`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_landlords",
+                  "displayName": "Total Landlords"
+                }
+              },
+              "frame": {
+                "title": "Total Landlords",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_landlords)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "landlords_health_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "avg_health_score",
+                      "expression": "`avg_health_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_health_score",
+                  "displayName": "Avg Health Score"
+                }
+              },
+              "frame": {
+                "title": "Avg Health Score",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(avg_health_score)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "landlords_low_risk_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "low_risk_count",
+                      "expression": "`low_risk_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "low_risk_count",
+                  "displayName": "Low Risk"
+                }
+              },
+              "frame": {
+                "title": "Low Risk Landlords",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(low_risk_count)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "landlords_by_type_pie",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_by_type_dataset",
+                  "fields": [
+                    {
+                      "name": "company_type",
+                      "expression": "`company_type`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count",
+                  "displayName": "Count"
+                },
+                "color": {
+                  "fieldName": "company_type",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Company Type"
+                }
+              },
+              "frame": {
+                "title": "Landlords by Company Type",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_landlords) by company_type"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "landlords_by_sentiment_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_by_sentiment_dataset",
+                  "fields": [
+                    {
+                      "name": "sentiment",
+                      "expression": "`sentiment`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sentiment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "News Sentiment"
+                },
+                "y": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Count"
+                }
+              },
+              "frame": {
+                "title": "News Sentiment Distribution",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_landlords) by news_sentiment"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 4,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "landlords_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "landlords_dataset",
+                  "fields": [
+                    {
+                      "name": "landlord_name",
+                      "expression": "`landlord_name`"
+                    },
+                    {
+                      "name": "company_type",
+                      "expression": "`company_type`"
+                    },
+                    {
+                      "name": "stock_ticker",
+                      "expression": "`stock_ticker`"
+                    },
+                    {
+                      "name": "market_cap",
+                      "expression": "`market_cap`"
+                    },
+                    {
+                      "name": "annual_revenue",
+                      "expression": "`annual_revenue`"
+                    },
+                    {
+                      "name": "credit_rating",
+                      "expression": "`credit_rating`"
+                    },
+                    {
+                      "name": "total_properties",
+                      "expression": "`total_properties`"
+                    },
+                    {
+                      "name": "financial_health_score",
+                      "expression": "`financial_health_score`"
+                    },
+                    {
+                      "name": "bankruptcy_risk",
+                      "expression": "`bankruptcy_risk`"
+                    },
+                    {
+                      "name": "recent_news_sentiment",
+                      "expression": "`recent_news_sentiment`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "landlord_name",
+                    "displayName": "Name"
+                  },
+                  {
+                    "fieldName": "company_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "stock_ticker",
+                    "displayName": "Ticker"
+                  },
+                  {
+                    "fieldName": "market_cap",
+                    "displayName": "Market Cap"
+                  },
+                  {
+                    "fieldName": "annual_revenue",
+                    "displayName": "Annual Revenue"
+                  },
+                  {
+                    "fieldName": "credit_rating",
+                    "displayName": "Credit Rating"
+                  },
+                  {
+                    "fieldName": "total_properties",
+                    "displayName": "Properties"
+                  },
+                  {
+                    "fieldName": "financial_health_score",
+                    "displayName": "Health Score"
+                  },
+                  {
+                    "fieldName": "bankruptcy_risk",
+                    "displayName": "Risk"
+                  },
+                  {
+                    "fieldName": "recent_news_sentiment",
+                    "displayName": "Sentiment"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Landlord Profiles",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Detail view from landlords table"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenants_page",
+      "displayName": "Tenants",
+      "layout": [
+        {
+          "widget": {
+            "name": "tenants_title",
+            "textbox_spec": "# Tenant Profiles\n\n**Powered by `tenant_metrics` Metric View**\n\nAggregate tenant analytics from the centralized metric view with dimensions for industry, company type, risk level, and company size."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "total_tenants_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "total_tenants",
+                      "expression": "`total_tenants`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_tenants",
+                  "displayName": "Total Tenants"
+                }
+              },
+              "frame": {
+                "title": "Total Tenants",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_tenants)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "tenants_health_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "avg_health_score",
+                      "expression": "`avg_health_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg_health_score",
+                  "displayName": "Avg Health Score"
+                }
+              },
+              "frame": {
+                "title": "Avg Health Score",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(avg_health_score)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "tenants_growing_counter",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_summary_dataset",
+                  "fields": [
+                    {
+                      "name": "growing_companies",
+                      "expression": "`growing_companies`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "growing_companies",
+                  "displayName": "Growing Companies"
+                }
+              },
+              "frame": {
+                "title": "Growing Companies",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(growing_companies)"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "tenants_by_industry_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_by_industry_dataset",
+                  "fields": [
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Count"
+                },
+                "y": {
+                  "fieldName": "industry_sector",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Industry"
+                }
+              },
+              "frame": {
+                "title": "Tenants by Industry",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_tenants) by industry_sector"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tenants_by_size_pie",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_by_size_dataset",
+                  "fields": [
+                    {
+                      "name": "company_size",
+                      "expression": "`company_size`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count",
+                  "displayName": "Count"
+                },
+                "color": {
+                  "fieldName": "company_size",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Company Size"
+                }
+              },
+              "frame": {
+                "title": "Tenants by Company Size",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "MEASURE(total_tenants) by company_size"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 4,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "tenants_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "tenants_dataset",
+                  "fields": [
+                    {
+                      "name": "tenant_name",
+                      "expression": "`tenant_name`"
+                    },
+                    {
+                      "name": "industry_sector",
+                      "expression": "`industry_sector`"
+                    },
+                    {
+                      "name": "company_type",
+                      "expression": "`company_type`"
+                    },
+                    {
+                      "name": "stock_ticker",
+                      "expression": "`stock_ticker`"
+                    },
+                    {
+                      "name": "annual_revenue",
+                      "expression": "`annual_revenue`"
+                    },
+                    {
+                      "name": "employee_count",
+                      "expression": "`employee_count`"
+                    },
+                    {
+                      "name": "credit_rating",
+                      "expression": "`credit_rating`"
+                    },
+                    {
+                      "name": "financial_health_score",
+                      "expression": "`financial_health_score`"
+                    },
+                    {
+                      "name": "bankruptcy_risk",
+                      "expression": "`bankruptcy_risk`"
+                    },
+                    {
+                      "name": "revenue_growth_pct",
+                      "expression": "`revenue_growth_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "tenant_name",
+                    "displayName": "Name"
+                  },
+                  {
+                    "fieldName": "industry_sector",
+                    "displayName": "Industry"
+                  },
+                  {
+                    "fieldName": "company_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "stock_ticker",
+                    "displayName": "Ticker"
+                  },
+                  {
+                    "fieldName": "annual_revenue",
+                    "displayName": "Annual Revenue"
+                  },
+                  {
+                    "fieldName": "employee_count",
+                    "displayName": "Employees"
+                  },
+                  {
+                    "fieldName": "credit_rating",
+                    "displayName": "Credit Rating"
+                  },
+                  {
+                    "fieldName": "financial_health_score",
+                    "displayName": "Health Score"
+                  },
+                  {
+                    "fieldName": "bankruptcy_risk",
+                    "displayName": "Risk"
+                  },
+                  {
+                    "fieldName": "revenue_growth_pct",
+                    "displayName": "Growth %"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Tenant Profiles",
+                "showTitle": true,
+                "showDescription": true,
+                "description": "Detail view from tenants table"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "glossary_page",
+      "displayName": "Glossary",
+      "layout": [
+        {
+          "widget": {
+            "name": "glossary_content",
+            "textbox_spec": "# Glossary of Terms\n\n**Key metrics and definitions for commercial real estate lease analysis**\n\n---\n\n## PSF - Price Per Square Foot\n\nA standard commercial real estate metric that represents the annual rental cost divided by the total rentable square footage of a space. PSF allows for easy comparison of rental rates across properties of different sizes.\n\n**Example:** A lease with $50 PSF on a 10,000 sq ft space would have an annual rent of $500,000.\n\n**Formula:** `PSF = Annual Base Rent \u00f7 Rentable Square Feet`\n\n**Metric View:** `portfolio_lease_metrics.avg_rent_psf`\n\n---\n\n## WALT - Weighted Average Lease Term\n\nA key portfolio metric that calculates the average remaining lease duration, weighted by each lease's contribution to total rental income or square footage. WALT helps investors understand the stability of cash flows and the timeline for potential vacancy risk.\n\nA higher WALT generally indicates more stable, long-term income streams.\n\n**Formula:** `WALT = \u03a3(Remaining Term \u00d7 Annual Rent) \u00f7 Total Annual Rent`\n\n**Metric View:** `market_performance_metrics.walt_years`\n\n---\n\n## Risk Score - Tenant Credit & Lease Risk Assessment\n\nA composite score (0-100) that evaluates the overall risk profile of a lease or tenant. The score is calculated using four weighted components:\n\n| Component | Weight | Metric View Measure |\n|-----------|--------|--------------------|\n| Rollover Risk | 40% | `avg_rollover_risk` |\n| Escalation Risk | 20% | `avg_escalation_risk` |\n| Industry Risk | 20% | `avg_industry_risk` |\n| Concentration Risk | 20% | `avg_concentration_risk` |\n\n**Metric View:** `risk_assessment_metrics`\n\n**Risk Levels:**\n- **Critical (80-100):** Immediate attention required\n- **High (60-79):** Priority monitoring\n- **Medium (40-59):** Standard monitoring\n- **Low (20-39):** Minimal concern\n- **Minimal (0-19):** Stable, low risk\n\n---\n\n## Financial Health Score\n\nA deterministic score (1-10) calculated from enriched company data including:\n- Credit rating\n- Market capitalization / Total assets\n- Debt-to-equity ratio\n- Revenue and profitability metrics\n- Bankruptcy risk assessment\n- Recent news sentiment\n\n**Metric Views:** `landlord_metrics.avg_health_score`, `tenant_metrics.avg_health_score`\n\n---\n\n## Available Metric Views\n\nThis dashboard uses the following centralized metric views:\n\n| Metric View | Description |\n|-------------|-------------|\n| `portfolio_lease_metrics` | Core lease KPIs with market/location dimensions |\n| `risk_assessment_metrics` | Risk scoring with industry/status dimensions |\n| `landlord_metrics` | Landlord profiles with company type/risk dimensions |\n| `tenant_metrics` | Tenant profiles with industry/size dimensions |\n| `market_performance_metrics` | Geographic and sector performance |\n\n---\n\n## Common Terms\n\n| Term | Definition |\n|------|------------|\n| **NNN (Triple Net)** | Tenant pays all property expenses including taxes, insurance, and maintenance |\n| **Gross Lease** | Landlord pays all operating expenses |\n| **Escalation** | Annual rent increase, typically tied to CPI or fixed percentage |\n| **CAM** | Common Area Maintenance charges |\n| **REIT** | Real Estate Investment Trust |\n| **NOI** | Net Operating Income |"
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 22
+          }
+        }
+      ]
+    }
+  ]
+}
