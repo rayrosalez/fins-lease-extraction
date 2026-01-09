@@ -8,8 +8,24 @@ This system generates realistic, multi-page synthetic PDF lease agreements that 
 - **Realistic Content**: Includes all standard commercial lease sections and legal language
 - **Complete Data**: All fields required by the extraction agent are present
 - **Real Addresses**: Uses actual US commercial building addresses
-- **Randomized Fields**: Tenant names, financial terms, dates, and other details are randomized
+- **S&P 500 Companies**: Uses REAL company names from the S&P 500 index for tenants
+- **Industry-Specific Sectors**: Automatically assigns correct industry sectors to companies
+- **Randomized Fields**: Financial terms, dates, and other details are randomized
 - **Professional Formatting**: Multi-column tables, proper legal formatting, and section numbering
+
+## S&P 500 Integration
+
+The generator now uses **208 real S&P 500 companies** as tenants, including:
+- **Technology**: Apple, Microsoft, NVIDIA, Amazon, Meta, Alphabet, Tesla, Oracle, Adobe, Salesforce, etc.
+- **Financial Services**: JPMorgan Chase, Bank of America, Goldman Sachs, Morgan Stanley, Visa, Mastercard, etc.
+- **Healthcare & Pharma**: UnitedHealth, Johnson & Johnson, Eli Lilly, Merck, Pfizer, Abbott, CVS Health, etc.
+- **Retail**: Walmart, Home Depot, Costco, Target, McDonald's, Starbucks, Nike, Lowe's, etc.
+- **Industrial**: Honeywell, GE, Caterpillar, 3M, Boeing, Lockheed Martin, UPS, FedEx, etc.
+- **Energy**: ExxonMobil, Chevron, ConocoPhillips, etc.
+- **Telecommunications**: Verizon, AT&T, T-Mobile, Comcast, etc.
+- **And more across all major sectors**
+
+Each company is automatically assigned its appropriate industry sector for realistic lease generation.
 
 ## Fields Included
 
@@ -137,14 +153,25 @@ US_ADDRESSES = [
 
 ### Add More Company Names
 
-Edit `TENANT_NAMES` or `LANDLORD_NAMES` lists:
+The system now uses real S&P 500 companies from `sp500_companies.py`. To add more companies:
 
 ```python
-TENANT_NAMES = [
+# Edit sp500_companies.py
+SP500_COMPANIES = [
     "Your Company Name",
-    # Add more...
+    # ... existing companies
 ]
+
+# Add sector mapping
+COMPANY_SECTORS = {
+    "Your Company Name": "Your Industry Sector",
+    # ... existing mappings
+}
 ```
+
+Available sectors: Technology, Financial Services, Healthcare, Pharmaceuticals, Retail, Restaurant, 
+Manufacturing, Aerospace, Logistics, Energy, Telecommunications, Insurance, Media & Entertainment, 
+Real Estate Services, Professional Services
 
 ### Modify Financial Ranges
 

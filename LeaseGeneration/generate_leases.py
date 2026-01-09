@@ -13,6 +13,7 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
 from reportlab.lib import colors
 import os
+from sp500_companies import SP500_COMPANIES, get_sector_for_company
 
 
 # Real US addresses database
@@ -39,15 +40,8 @@ US_ADDRESSES = [
     {"street": "800 North Glebe Road", "city": "Arlington", "state": "VA", "zip": "22203", "country": "United States"},
 ]
 
-TENANT_NAMES = [
-    "Acme Corporation", "TechFlow Solutions Inc.", "Global Innovations LLC",
-    "Premier Consulting Group", "Silverstone Enterprises", "Phoenix Trading Company",
-    "Meridian Financial Services", "Cascade Technologies Inc.", "Summit Retail Group",
-    "Horizon Healthcare Partners", "Vertex Manufacturing Co.", "Atlas Logistics LLC",
-    "Quantum Research Labs", "Northstar Pharmaceuticals", "Redwood Capital Partners",
-    "Evergreen Media Group", "Stratosphere Aerospace", "Pinnacle Law Firm LLP",
-    "Oceanic Systems Inc.", "Cornerstone Architecture"
-]
+# Tenant names are now imported from sp500_companies.py
+# TENANT_NAMES is replaced by SP500_COMPANIES
 
 LANDLORD_NAMES = [
     "Metropolitan Real Estate Holdings LLC", "Urban Properties Group Inc.",
@@ -65,11 +59,8 @@ LANDLORD_ADDRESSES = [
     {"street": "300 South Grand Avenue", "city": "Los Angeles", "state": "CA", "zip": "90071"},
 ]
 
-INDUSTRY_SECTORS = [
-    "Technology", "Financial Services", "Healthcare", "Legal Services",
-    "Retail", "Consulting", "Manufacturing", "Media & Entertainment",
-    "Pharmaceuticals", "Telecommunications", "Aerospace", "Real Estate Services"
-]
+# Industry sectors are now dynamically assigned based on S&P 500 company
+# using get_sector_for_company() function
 
 LEASE_TYPES = [
     "Triple Net (NNN)", "Modified Gross", "Full Service Gross", "Absolute Net"
@@ -173,9 +164,13 @@ class LeaseGenerator:
             "Tenant may terminate with 12 months notice and payment of termination fee equal to 6 months base rent"
         ])
         
+        # Select tenant company
+        tenant_name = random.choice(SP500_COMPANIES)
+        tenant_sector = get_sector_for_company(tenant_name)
+        
         guarantor = random.choice([
-            "Personal guaranty by John Smith, CEO",
-            "Corporate parent guaranty by " + random.choice(TENANT_NAMES),
+            "Personal guaranty by CEO",
+            "Corporate parent guaranty",
             "Letter of credit in the amount of $" + f"{int(security_deposit * 2):,}",
             "No guaranty required"
         ])
@@ -186,9 +181,9 @@ class LeaseGenerator:
             "landlord_address": f"{landlord_addr['street']}, {landlord_addr['city']}, {landlord_addr['state']} {landlord_addr['zip']}",
             
             # Tenant
-            "tenant_name": random.choice(TENANT_NAMES),
+            "tenant_name": tenant_name,
             "tenant_address": f"{property_addr['street']}, {property_addr['city']}, {property_addr['state']} {property_addr['zip']}",
-            "industry_sector": random.choice(INDUSTRY_SECTORS),
+            "industry_sector": tenant_sector,
             
             # Property Location
             "property_street": property_addr['street'],

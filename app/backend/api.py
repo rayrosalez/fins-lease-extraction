@@ -601,10 +601,14 @@ def upload_file():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/check-processing/<path:file_path>', methods=['GET'])
-def check_processing(file_path):
+@app.route('/api/check-processing', methods=['POST'])
+def check_processing():
     """Check if a file has been processed to bronze layer"""
     try:
+        # Get file_path from request body instead of URL
+        data = request.json
+        file_path = data.get('file_path', '')
+        
         # Extract just the filename from the full path
         filename = file_path.split('/')[-1]
         
@@ -617,6 +621,7 @@ def check_processing(file_path):
             ingested_at
         FROM {CATALOG}.{SCHEMA}.raw_leases
         WHERE file_path LIKE '%{filename}%'
+        ORDER BY ingested_at DESC
         LIMIT 1
         """
         
@@ -634,7 +639,11 @@ def check_processing(file_path):
         # Get the ingested_at timestamp from raw to match with uploaded_at in bronze
         raw_ingested_at = raw_data[0][1]  # ingested_at from raw_leases
         
-        bronze_query = f"""
+        print(f"Found in raw_leases with ingested_at: {raw_ingested_at}")
+        
+        # Try multiple strategies to find the bronze record:
+        # Strategy 1: Exact timestamp match (with tolerance for milliseconds)
+        bronze_query_exact = f"""
         SELECT 
             extraction_id,
             landlord_name,
@@ -663,12 +672,53 @@ def check_processing(file_path):
             uploaded_at,
             extracted_at
         FROM {CATALOG}.{SCHEMA}.bronze_leases
-        WHERE uploaded_at = '{raw_ingested_at}'
-        ORDER BY extracted_at DESC
+        WHERE ABS(UNIX_TIMESTAMP(uploaded_at) - UNIX_TIMESTAMP('{raw_ingested_at}')) < 5
+        AND validation_status = 'NEW'
+        ORDER BY uploaded_at DESC
         LIMIT 1
         """
         
-        bronze_data, bronze_error = execute_query(bronze_query)
+        bronze_data, bronze_error = execute_query(bronze_query_exact)
+        
+        # Strategy 2: If no exact match, try finding the most recent NEW record
+        if (bronze_error or not bronze_data or len(bronze_data) == 0):
+            print(f"No exact timestamp match, trying recent NEW records...")
+            bronze_query_recent = f"""
+            SELECT 
+                extraction_id,
+                landlord_name,
+                landlord_address,
+                tenant_name,
+                tenant_address,
+                industry_sector,
+                suite_number,
+                lease_type,
+                commencement_date,
+                expiration_date,
+                term_months,
+                rentable_square_feet,
+                annual_base_rent,
+                base_rent_psf,
+                annual_escalation_pct,
+                renewal_notice_days,
+                guarantor,
+                property_address,
+                property_street_address,
+                property_city,
+                property_state,
+                property_zip_code,
+                property_country,
+                validation_status,
+                uploaded_at,
+                extracted_at
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE validation_status = 'NEW'
+            AND uploaded_at >= TIMESTAMPADD(MINUTE, -10, '{raw_ingested_at}')
+            ORDER BY uploaded_at DESC
+            LIMIT 1
+            """
+            
+            bronze_data, bronze_error = execute_query(bronze_query_recent)
         
         if bronze_error:
             print(f"Error checking bronze_leases: {bronze_error}")
@@ -2105,8 +2155,9 @@ def serve_react_app():
 def serve_static(path):
     """Serve static files or fall back to index.html for React Router"""
     # Skip API routes - they should be handled by their own endpoints
+    # If we get here with an API path, it means the route doesn't exist
     if path.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
+        return jsonify({'error': f'API endpoint not found: /{path}'}), 404
     # First try to serve the file directly
     static_file_path = os.path.join(STATIC_FOLDER, path)
     if os.path.exists(static_file_path) and os.path.isfile(static_file_path):
