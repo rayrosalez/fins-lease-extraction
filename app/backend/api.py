@@ -1462,12 +1462,15 @@ def delete_records():
 
 @app.route('/api/portfolio/risk-assessment', methods=['GET'])
 def get_risk_assessment():
-    """Get comprehensive risk assessment data from gold layer"""
+    """Get comprehensive risk assessment data from gold layer with enrichment"""
     try:
         query = f"""
         SELECT 
             lease_id,
             tenant_name,
+            tenant_id,
+            landlord_name,
+            landlord_id,
             property_id,
             industry_sector,
             lease_end_date,
@@ -1477,11 +1480,27 @@ def get_risk_assessment():
             days_to_expiry,
             sector_risk_base,
             portfolio_concentration_pct,
+            has_tenant_enrichment,
+            has_landlord_enrichment,
+            tenant_health_score,
+            tenant_credit_rating,
+            tenant_bankruptcy_risk,
+            tenant_payment_score,
+            tenant_enrichment_confidence,
+            landlord_health_score,
+            landlord_credit_rating,
+            landlord_bankruptcy_risk,
+            landlord_debt_to_equity,
+            landlord_enrichment_confidence,
+            tenant_credit_risk_score,
+            tenant_bankruptcy_risk_score,
+            landlord_risk_score,
             rollover_score,
             escalation_risk_score,
             concentration_risk_score,
             lease_status,
-            total_risk_score
+            total_risk_score,
+            risk_model_used
         FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
         WHERE total_risk_score IS NOT NULL
         ORDER BY total_risk_score DESC
@@ -1500,20 +1519,39 @@ def get_risk_assessment():
             results.append({
                 'lease_id': row[0],
                 'tenant_name': row[1],
-                'property_id': row[2],
-                'industry_sector': row[3],
-                'lease_end_date': row[4],
-                'annual_escalation_pct': float(row[5]) if row[5] is not None else 0,
-                'estimated_annual_rent': float(row[6]) if row[6] is not None else 0,
-                'square_footage': float(row[7]) if row[7] is not None else 0,
-                'days_to_expiry': int(row[8]) if row[8] is not None else 0,
-                'sector_risk_base': float(row[9]) if row[9] is not None else 0,
-                'portfolio_concentration_pct': float(row[10]) if row[10] is not None else 0,
-                'rollover_score': float(row[11]) if row[11] is not None else 0,
-                'escalation_risk_score': float(row[12]) if row[12] is not None else 0,
-                'concentration_risk_score': float(row[13]) if row[13] is not None else 0,
-                'lease_status': row[14],
-                'total_risk_score': float(row[15]) if row[15] is not None else 0
+                'tenant_id': row[2],
+                'landlord_name': row[3],
+                'landlord_id': row[4],
+                'property_id': row[5],
+                'industry_sector': row[6],
+                'lease_end_date': row[7],
+                'annual_escalation_pct': float(row[8]) if row[8] is not None else 0,
+                'estimated_annual_rent': float(row[9]) if row[9] is not None else 0,
+                'square_footage': float(row[10]) if row[10] is not None else 0,
+                'days_to_expiry': int(row[11]) if row[11] is not None else 0,
+                'sector_risk_base': float(row[12]) if row[12] is not None else 0,
+                'portfolio_concentration_pct': float(row[13]) if row[13] is not None else 0,
+                'has_tenant_enrichment': bool(row[14]) if row[14] is not None else False,
+                'has_landlord_enrichment': bool(row[15]) if row[15] is not None else False,
+                'tenant_health_score': float(row[16]) if row[16] is not None else None,
+                'tenant_credit_rating': row[17],
+                'tenant_bankruptcy_risk': row[18],
+                'tenant_payment_score': float(row[19]) if row[19] is not None else None,
+                'tenant_enrichment_confidence': float(row[20]) if row[20] is not None else None,
+                'landlord_health_score': float(row[21]) if row[21] is not None else None,
+                'landlord_credit_rating': row[22],
+                'landlord_bankruptcy_risk': row[23],
+                'landlord_debt_to_equity': float(row[24]) if row[24] is not None else None,
+                'landlord_enrichment_confidence': float(row[25]) if row[25] is not None else None,
+                'tenant_credit_risk_score': float(row[26]) if row[26] is not None else 50,
+                'tenant_bankruptcy_risk_score': float(row[27]) if row[27] is not None else 40,
+                'landlord_risk_score': float(row[28]) if row[28] is not None else 30,
+                'rollover_score': float(row[29]) if row[29] is not None else 0,
+                'escalation_risk_score': float(row[30]) if row[30] is not None else 0,
+                'concentration_risk_score': float(row[31]) if row[31] is not None else 0,
+                'lease_status': row[32],
+                'total_risk_score': float(row[33]) if row[33] is not None else 0,
+                'risk_model_used': row[34]
             })
         
         return jsonify(results)

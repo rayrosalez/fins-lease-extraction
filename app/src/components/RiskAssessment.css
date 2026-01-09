@@ -696,3 +696,267 @@
   }
 }
 
+
+/* Enrichment Styles */
+.risk-summary-card.enrichment {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.risk-summary-card.enrichment:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.enriched-indicator {
+  display: inline-block;
+  margin-left: 0.5rem;
+  color: #10b981;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.model-badge-small {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.model-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+}
+
+.model-type {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.model-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.model-desc {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.enriched-factor {
+  border-left: 3px solid #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.enriched-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* Expandable Row Styles */
+.expanded-row {
+  background: rgba(255, 54, 33, 0.1) !important;
+}
+
+.expand-cell {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #ff3621;
+  font-weight: bold;
+}
+
+.detail-row {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.detail-row td {
+  padding: 0 !important;
+}
+
+.lease-details {
+  padding: 2rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.detail-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.detail-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #ff3621;
+  font-weight: 600;
+}
+
+.component-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.component-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+}
+
+.component-item.enriched {
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.component-label {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.component-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* Enrichment Section Styles */
+.enrichment-section {
+  border-left: 3px solid #10b981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.enrichment-data {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.enrichment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.enrichment-item:last-child {
+  border-bottom: none;
+}
+
+.enrichment-item.confidence {
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: none;
+}
+
+.enrich-label {
+  font-size: 0.85rem;
+  color: #9ca3af;
+}
+
+.enrich-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.health-indicator {
+  font-size: 1.2rem;
+}
+
+.health-indicator.good {
+  color: #10b981;
+}
+
+.health-indicator.moderate {
+  color: #eab308;
+}
+
+.health-indicator.poor {
+  color: #ef4444;
+}
+
+.risk-low {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.risk-medium {
+  color: #eab308;
+  font-weight: 700;
+}
+
+.risk-high {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.no-enrichment {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  background: rgba(107, 114, 128, 0.1);
+  border-left: 3px solid #6b7280;
+}
+
+.no-enrichment h4 {
+  color: #9ca3af;
+}
+
+.no-enrichment p {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.landlord-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

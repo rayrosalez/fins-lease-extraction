@@ -15,6 +15,7 @@ const RiskAssessment = () => {
   const [error, setError] = useState(null);
   const [selectedView, setSelectedView] = useState('bubble');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [expandedLease, setExpandedLease] = useState(null);
 
   useEffect(() => {
     fetchRiskData();
@@ -63,12 +64,21 @@ const RiskAssessment = () => {
     const totalAtRisk = riskData
       .filter(l => l.total_risk_score > 70)
       .reduce((sum, l) => sum + l.estimated_annual_rent, 0);
+    
+    // Enrichment stats
+    const tenantEnriched = riskData.filter(l => l.has_tenant_enrichment).length;
+    const landlordEnriched = riskData.filter(l => l.has_landlord_enrichment).length;
+    const fullyEnriched = riskData.filter(l => l.has_tenant_enrichment && l.has_landlord_enrichment).length;
 
     return {
       criticalLeases,
       highPriority,
       avgRisk,
-      totalAtRisk
+      totalAtRisk,
+      tenantEnriched,
+      landlordEnriched,
+      fullyEnriched,
+      enrichmentRate: ((tenantEnriched + landlordEnriched) / (riskData.length * 2) * 100).toFixed(1)
     };
   }, [riskData]);
 
@@ -212,6 +222,26 @@ const RiskAssessment = () => {
     return colors[status] || '#6b7280';
   };
 
+  const getRiskModelBadgeColor = (model) => {
+    const colors = {
+      'FULLY_ENRICHED': '#10b981',
+      'TENANT_ENRICHED': '#3b82f6',
+      'LANDLORD_ENRICHED': '#8b5cf6',
+      'BASIC': '#6b7280'
+    };
+    return colors[model] || '#6b7280';
+  };
+
+  const getRiskModelDescription = (model) => {
+    const descriptions = {
+      'FULLY_ENRICHED': 'Most Accurate - Using tenant & landlord financial data',
+      'TENANT_ENRICHED': 'Enhanced - Using tenant financial data',
+      'LANDLORD_ENRICHED': 'Enhanced - Using landlord financial data',
+      'BASIC': 'Standard - No enrichment data available'
+    };
+    return descriptions[model] || 'Unknown';
+  };
+
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -292,6 +322,13 @@ const RiskAssessment = () => {
                 <div className="summary-sublabel">Score &gt; 70</div>
               </div>
             </div>
+            <div className="risk-summary-card enrichment">
+              <div className="summary-content">
+                <div className="summary-label">Enrichment Coverage</div>
+                <div className="summary-value">{stats.enrichmentRate}%</div>
+                <div className="summary-sublabel">{stats.fullyEnriched} fully enriched</div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -299,32 +336,74 @@ const RiskAssessment = () => {
         <div className="risk-explanation">
           <h3 className="explanation-title">How Risk Scores Are Calculated</h3>
           <p className="explanation-intro">
-            Each lease receives a Total Risk Score (0-100) based on four weighted components:
+            Each lease receives a Total Risk Score (0-100) using an <strong>adaptive model</strong> based on available enrichment data:
           </p>
+          
+          {/* Model Types */}
+          <div className="model-types">
+            <div className="model-type">
+              <span className="model-badge" style={{background: getRiskModelBadgeColor('FULLY_ENRICHED')}}>FULLY ENRICHED</span>
+              <span className="model-desc">Both tenant & landlord financial data (7 factors)</span>
+            </div>
+            <div className="model-type">
+              <span className="model-badge" style={{background: getRiskModelBadgeColor('TENANT_ENRICHED')}}>TENANT ENRICHED</span>
+              <span className="model-desc">Tenant financial data only (6 factors)</span>
+            </div>
+            <div className="model-type">
+              <span className="model-badge" style={{background: getRiskModelBadgeColor('LANDLORD_ENRICHED')}}>LANDLORD ENRICHED</span>
+              <span className="model-desc">Landlord financial data only (5 factors)</span>
+            </div>
+            <div className="model-type">
+              <span className="model-badge" style={{background: getRiskModelBadgeColor('BASIC')}}>BASIC</span>
+              <span className="model-desc">No enrichment data (4 factors)</span>
+            </div>
+          </div>
+
           <div className="risk-factors-grid">
             <div className="risk-factor">
-              <div className="factor-weight">40%</div>
+              <div className="factor-weight">25-40%</div>
               <div className="factor-content">
                 <h4>Rollover Risk</h4>
                 <p>Based on days until lease expiration. Critical leases expiring in 0-90 days score highest (100), while leases 2+ years out score lowest (10).</p>
               </div>
             </div>
-            <div className="risk-factor">
+            <div className="risk-factor enriched-factor">
               <div className="factor-weight">20%</div>
+              <div className="factor-content">
+                <h4>Tenant Credit Risk <span className="enriched-badge">[Enriched]</span></h4>
+                <p>Financial health score (1-10) converted to risk. Considers credit rating, revenue growth, profit margins, and bankruptcy risk.</p>
+              </div>
+            </div>
+            <div className="risk-factor">
+              <div className="factor-weight">10-20%</div>
               <div className="factor-content">
                 <h4>Escalation Risk</h4>
                 <p>Measures if rent keeps pace with inflation. Low escalation rates (&lt;2%) score higher as they create future revenue pressure.</p>
               </div>
             </div>
-            <div className="risk-factor">
-              <div className="factor-weight">20%</div>
+            <div className="risk-factor enriched-factor">
+              <div className="factor-weight">10%</div>
               <div className="factor-content">
-                <h4>Industry Risk</h4>
-                <p>Sector-based risk scores. Retail and Restaurant (80) have higher default risk than Healthcare and Government (20).</p>
+                <h4>Tenant Bankruptcy Risk <span className="enriched-badge">[Enriched]</span></h4>
+                <p>Assessed bankruptcy risk: HIGH (90), MEDIUM (50), LOW (10). Based on financial indicators and market conditions.</p>
               </div>
             </div>
             <div className="risk-factor">
-              <div className="factor-weight">20%</div>
+              <div className="factor-weight">10-20%</div>
+              <div className="factor-content">
+                <h4>Industry Risk</h4>
+                <p>Sector-based risk scores. Retail and Restaurant (80) have higher default risk than Healthcare and Government (20). Enhanced by tenant-specific industry risk if enriched.</p>
+              </div>
+            </div>
+            <div className="risk-factor enriched-factor">
+              <div className="factor-weight">10%</div>
+              <div className="factor-content">
+                <h4>Landlord Financial Strength <span className="enriched-badge">[Enriched]</span></h4>
+                <p>Landlord health score considering credit rating, debt-to-equity ratio, market cap, and portfolio quality.</p>
+              </div>
+            </div>
+            <div className="risk-factor">
+              <div className="factor-weight">15-20%</div>
               <div className="factor-content">
                 <h4>Concentration Risk</h4>
                 <p>Portfolio exposure to individual leases. Larger tenants (&gt;10% of portfolio) score higher due to potential revenue impact.</p>
@@ -596,48 +675,217 @@ const RiskAssessment = () => {
                 <tr>
                   <th>Rank</th>
                   <th>Tenant</th>
+                  <th>Landlord</th>
                   <th>Industry</th>
+                  <th>Model</th>
                   <th>Status</th>
                   <th>Days to Expiry</th>
                   <th>Annual Rent</th>
-                  <th>Concentration</th>
                   <th>Risk Score</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {topRiskyLeases.map((lease, index) => (
-                  <tr key={lease.lease_id}>
-                    <td className="rank-cell">{index + 1}</td>
-                    <td className="tenant-cell">{lease.tenant_name}</td>
-                    <td>{lease.industry_sector || 'Unknown'}</td>
-                    <td>
-                      <span 
-                        className="status-badge" 
-                        style={{ background: getStatusColor(lease.lease_status) }}
-                      >
-                        {lease.lease_status.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                    <td className={lease.days_to_expiry < 90 ? 'critical-days' : ''}>
-                      {lease.days_to_expiry} days
-                    </td>
-                    <td className="rent-cell">${lease.estimated_annual_rent.toLocaleString()}</td>
-                    <td>{lease.portfolio_concentration_pct.toFixed(2)}%</td>
-                    <td>
-                      <div className="risk-score-cell">
-                        <div className="risk-score-bar">
-                          <div 
-                            className="risk-score-fill"
-                            style={{ 
-                              width: `${lease.total_risk_score}%`,
-                              background: getRiskColor(lease.total_risk_score)
-                            }}
-                          ></div>
+                  <React.Fragment key={lease.lease_id}>
+                    <tr 
+                      className={expandedLease === lease.lease_id ? 'expanded-row' : ''}
+                      onClick={() => setExpandedLease(expandedLease === lease.lease_id ? null : lease.lease_id)}
+                      style={{cursor: 'pointer'}}
+                    >
+                      <td className="rank-cell">{index + 1}</td>
+                      <td className="tenant-cell">
+                        {lease.tenant_name}
+                        {lease.has_tenant_enrichment && <span className="enriched-indicator" title="Tenant data enriched">[✓]</span>}
+                      </td>
+                      <td className="landlord-cell">
+                        {lease.landlord_name || 'Unknown'}
+                        {lease.has_landlord_enrichment && <span className="enriched-indicator" title="Landlord data enriched">[✓]</span>}
+                      </td>
+                      <td>{lease.industry_sector || 'Unknown'}</td>
+                      <td>
+                        <span 
+                          className="model-badge-small" 
+                          style={{ background: getRiskModelBadgeColor(lease.risk_model_used) }}
+                          title={getRiskModelDescription(lease.risk_model_used)}
+                        >
+                          {lease.risk_model_used?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td>
+                        <span 
+                          className="status-badge" 
+                          style={{ background: getStatusColor(lease.lease_status) }}
+                        >
+                          {lease.lease_status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className={lease.days_to_expiry < 90 ? 'critical-days' : ''}>
+                        {lease.days_to_expiry} days
+                      </td>
+                      <td className="rent-cell">${lease.estimated_annual_rent.toLocaleString()}</td>
+                      <td>
+                        <div className="risk-score-cell">
+                          <div className="risk-score-bar">
+                            <div 
+                              className="risk-score-fill"
+                              style={{ 
+                                width: `${lease.total_risk_score}%`,
+                                background: getRiskColor(lease.total_risk_score)
+                              }}
+                            ></div>
+                          </div>
+                          <span className="risk-score-value">{lease.total_risk_score.toFixed(1)}</span>
                         </div>
-                        <span className="risk-score-value">{lease.total_risk_score.toFixed(1)}</span>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="expand-cell">
+                        {expandedLease === lease.lease_id ? '[-]' : '[+]'}
+                      </td>
+                    </tr>
+                    {expandedLease === lease.lease_id && (
+                      <tr className="detail-row">
+                        <td colSpan="10">
+                          <div className="lease-details">
+                            <div className="details-grid">
+                              {/* Risk Components */}
+                              <div className="detail-section">
+                                <h4>Risk Components</h4>
+                                <div className="component-list">
+                                  <div className="component-item">
+                                    <span className="component-label">Rollover Risk:</span>
+                                    <span className="component-value">{lease.rollover_score?.toFixed(1) || 'N/A'}</span>
+                                  </div>
+                                  <div className="component-item">
+                                    <span className="component-label">Escalation Risk:</span>
+                                    <span className="component-value">{lease.escalation_risk_score?.toFixed(1) || 'N/A'}</span>
+                                  </div>
+                                  <div className="component-item">
+                                    <span className="component-label">Industry Risk:</span>
+                                    <span className="component-value">{lease.sector_risk_base?.toFixed(1) || 'N/A'}</span>
+                                  </div>
+                                  <div className="component-item">
+                                    <span className="component-label">Concentration Risk:</span>
+                                    <span className="component-value">{lease.concentration_risk_score?.toFixed(1) || 'N/A'}</span>
+                                  </div>
+                                  {lease.has_tenant_enrichment && (
+                                    <>
+                                      <div className="component-item enriched">
+                                        <span className="component-label">[*] Tenant Credit Risk:</span>
+                                        <span className="component-value">{lease.tenant_credit_risk_score?.toFixed(1) || 'N/A'}</span>
+                                      </div>
+                                      <div className="component-item enriched">
+                                        <span className="component-label">[*] Tenant Bankruptcy Risk:</span>
+                                        <span className="component-value">{lease.tenant_bankruptcy_risk_score?.toFixed(1) || 'N/A'}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                  {lease.has_landlord_enrichment && (
+                                    <div className="component-item enriched">
+                                      <span className="component-label">[*] Landlord Risk:</span>
+                                      <span className="component-value">{lease.landlord_risk_score?.toFixed(1) || 'N/A'}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Tenant Enrichment */}
+                              {lease.has_tenant_enrichment && (
+                                <div className="detail-section enrichment-section">
+                                  <h4>Tenant Financial Profile</h4>
+                                  <div className="enrichment-data">
+                                    <div className="enrichment-item">
+                                      <span className="enrich-label">Health Score:</span>
+                                      <span className="enrich-value">
+                                        {lease.tenant_health_score?.toFixed(1) || 'N/A'}/10
+                                        <span className={`health-indicator ${lease.tenant_health_score >= 7 ? 'good' : lease.tenant_health_score >= 4 ? 'moderate' : 'poor'}`}>
+                                          {lease.tenant_health_score >= 7 ? '[Good]' : lease.tenant_health_score >= 4 ? '[Moderate]' : '[Poor]'}
+                                        </span>
+                                      </span>
+                                    </div>
+                                    {lease.tenant_credit_rating && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Credit Rating:</span>
+                                        <span className="enrich-value">{lease.tenant_credit_rating}</span>
+                                      </div>
+                                    )}
+                                    {lease.tenant_bankruptcy_risk && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Bankruptcy Risk:</span>
+                                        <span className={`enrich-value risk-${lease.tenant_bankruptcy_risk.toLowerCase()}`}>
+                                          {lease.tenant_bankruptcy_risk}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {lease.tenant_payment_score && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Payment History:</span>
+                                        <span className="enrich-value">{lease.tenant_payment_score.toFixed(0)}/100</span>
+                                      </div>
+                                    )}
+                                    <div className="enrichment-item confidence">
+                                      <span className="enrich-label">Data Confidence:</span>
+                                      <span className="enrich-value">{(lease.tenant_enrichment_confidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Landlord Enrichment */}
+                              {lease.has_landlord_enrichment && (
+                                <div className="detail-section enrichment-section">
+                                  <h4>Landlord Financial Profile</h4>
+                                  <div className="enrichment-data">
+                                    <div className="enrichment-item">
+                                      <span className="enrich-label">Health Score:</span>
+                                      <span className="enrich-value">
+                                        {lease.landlord_health_score?.toFixed(1) || 'N/A'}/10
+                                        <span className={`health-indicator ${lease.landlord_health_score >= 7 ? 'good' : lease.landlord_health_score >= 4 ? 'moderate' : 'poor'}`}>
+                                          {lease.landlord_health_score >= 7 ? '[Good]' : lease.landlord_health_score >= 4 ? '[Moderate]' : '[Poor]'}
+                                        </span>
+                                      </span>
+                                    </div>
+                                    {lease.landlord_credit_rating && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Credit Rating:</span>
+                                        <span className="enrich-value">{lease.landlord_credit_rating}</span>
+                                      </div>
+                                    )}
+                                    {lease.landlord_bankruptcy_risk && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Bankruptcy Risk:</span>
+                                        <span className={`enrich-value risk-${lease.landlord_bankruptcy_risk.toLowerCase()}`}>
+                                          {lease.landlord_bankruptcy_risk}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {lease.landlord_debt_to_equity && (
+                                      <div className="enrichment-item">
+                                        <span className="enrich-label">Debt/Equity Ratio:</span>
+                                        <span className="enrich-value">{lease.landlord_debt_to_equity.toFixed(2)}</span>
+                                      </div>
+                                    )}
+                                    <div className="enrichment-item confidence">
+                                      <span className="enrich-label">Data Confidence:</span>
+                                      <span className="enrich-value">{(lease.landlord_enrichment_confidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* No Enrichment Message */}
+                              {!lease.has_tenant_enrichment && !lease.has_landlord_enrichment && (
+                                <div className="detail-section no-enrichment">
+                                  <h4>Enrichment Opportunity</h4>
+                                  <p>This lease is using the <strong>BASIC</strong> risk model with standard factors only.</p>
+                                  <p>Enrich tenant and landlord data to get more accurate risk assessment with financial health scores, credit ratings, and bankruptcy risk analysis.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

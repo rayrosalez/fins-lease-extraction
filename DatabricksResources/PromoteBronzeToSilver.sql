@@ -31,6 +31,9 @@ USING (
         
         -- Core business fields
         tenant_name,
+        LOWER(REGEXP_REPLACE(COALESCE(tenant_name, ''), '[^a-zA-Z0-9]', '_')) as tenant_id,
+        landlord_name,
+        LOWER(REGEXP_REPLACE(COALESCE(landlord_name, ''), '[^a-zA-Z0-9]', '_')) as landlord_id,
         industry_sector,
         suite_number as suite_id,
         rentable_square_feet as square_footage,
@@ -102,6 +105,9 @@ USING (
         
         -- Core business fields
         tenant_name,
+        LOWER(REGEXP_REPLACE(COALESCE(tenant_name, ''), '[^a-zA-Z0-9]', '_')) as tenant_id,
+        landlord_name,
+        LOWER(REGEXP_REPLACE(COALESCE(landlord_name, ''), '[^a-zA-Z0-9]', '_')) as landlord_id,
         industry_sector,
         suite_number as suite_id,
         rentable_square_feet as square_footage,
