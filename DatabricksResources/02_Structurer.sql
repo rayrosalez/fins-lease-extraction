@@ -1,4 +1,7 @@
 %sql
+-- FIXED VERSION: Only process raw records that haven't been extracted yet
+-- This prevents duplicate insertions into bronze_leases
+
 INSERT INTO fins_team_3.lease_management.bronze_leases (
   uploaded_at, landlord_name, landlord_address, tenant_name, tenant_address, 
   industry_sector, suite_number, lease_type, commencement_date, expiration_date, 
@@ -10,14 +13,22 @@ INSERT INTO fins_team_3.lease_management.bronze_leases (
 )
 WITH agent_raw_output AS (
   SELECT 
-    raw_parsed_json AS input,
-    ingested_at AS source_uploaded_at,
+    raw.file_path,
+    raw.raw_parsed_json AS input,
+    raw.ingested_at AS source_uploaded_at,
     ai_query(
       'kie-c4f6b62e-endpoint',
-      raw_parsed_json,
+      raw.raw_parsed_json,
       failOnError => false
     ) AS response
-  FROM fins_team_3.lease_management.raw_leases
+  FROM fins_team_3.lease_management.raw_leases raw
+  -- CRITICAL FIX: Only process files that haven't been extracted to bronze yet
+  WHERE NOT EXISTS (
+    SELECT 1 
+    FROM fins_team_3.lease_management.bronze_leases bronze
+    WHERE bronze.uploaded_at = raw.ingested_at
+  )
+  -- Process up to 20 NEW records at a time
   LIMIT 20 
 ),
 parsed_results AS (
