@@ -267,8 +267,15 @@
 .section-title {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
   color: #ffffff;
+}
+
+.section-description {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
 }
 
 .upload-area {
@@ -918,9 +925,10 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-.sentiment-emoji {
+.sentiment-icon {
   font-size: 1.75rem;
   margin-bottom: 0.5rem;
+  font-weight: bold;
 }
 
 .sentiment-count {
@@ -1153,3 +1161,193 @@
   }
 }
 
+
+/* Floating Glossary Button */
+.floating-glossary-button {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 56px;
+  height: 56px;
+  background: rgba(59, 130, 246, 0.9);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  transition: all 0.3s ease;
+  z-index: 998;
+}
+
+.floating-glossary-button:hover {
+  background: rgba(59, 130, 246, 1);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+/* Glossary Modal */
+.glossary-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 999;
+  backdrop-filter: blur(8px);
+}
+
+.glossary-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  background: linear-gradient(135deg, rgba(26, 27, 35, 0.98) 0%, rgba(20, 21, 28, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  z-index: 1000;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.glossary-modal-header {
+  padding: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.glossary-modal-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.glossary-modal-close {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glossary-modal-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+.glossary-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 1.5rem;
+  align-content: start;
+}
+
+.glossary-modal-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.glossary-modal-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+}
+
+.glossary-modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+}
+
+.glossary-modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive for Glossary Modal */
+@media (max-width: 1024px) {
+  .glossary-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .glossary-modal-content {
+    grid-template-columns: 1fr;
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .floating-glossary-button {
+    bottom: 1rem;
+    right: 1rem;
+    width: 50px;
+    height: 50px;
+  }
+
+  .glossary-modal {
+    width: 95%;
+    max-height: 90vh;
+    border-radius: 16px;
+  }
+
+  .glossary-modal-header {
+    padding: 1.5rem;
+  }
+
+  .glossary-modal-title {
+    font-size: 1.5rem;
+  }
+
+  .glossary-modal-content {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .glossary-card-vertical {
+    padding: 1.25rem;
+  }
+}
+
+/* Glossary Modal Container for Centering */
+.glossary-modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.glossary-modal-container .glossary-modal {
+  pointer-events: auto;
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+}
