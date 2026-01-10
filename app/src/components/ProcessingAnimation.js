@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiClock, FiTarget, FiShield, FiTrendingUp } from 'react-icons/fi';
 import './ProcessingAnimation.css';
 

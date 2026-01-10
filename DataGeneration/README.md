@@ -1,521 +1,367 @@
-# Synthetic Lease Data Generator
+# Synthetic Data Generation with Full Enrichment
+
+Generate comprehensive synthetic lease data with full tenant and landlord enrichment to demonstrate the complete risk scoring ecosystem.
 
 ## Overview
 
-This tool generates realistic synthetic lease data and automatically promotes it from bronze to silver tables so it appears immediately in your frontend application. The data is designed to showcase the dashboard at scale with meaningful visualizations.
+This data generator creates a fully populated lease management system with:
+- **Silver Layer Leases** with tenant_id and landlord_id references
+- **Tenant Enrichment Table** with financial health scores, credit ratings, bankruptcy risk
+- **Landlord Enrichment Table** with REIT profiles, financial metrics, portfolio data
 
-## ⚡ Quick Start (Recommended)
-
-**Use the all-in-one script to generate data AND promote it to silver:**
-
-```bash
-python generate_and_promote.py
-```
-
-This script will:
-1. Generate synthetic lease data
-2. Insert into `bronze_leases` table
-3. Automatically promote VERIFIED records to `silver_leases` table
-4. Verify the data is ready for your frontend
-
-**Your data will immediately appear in the frontend application!**
+The generated data demonstrates all 4 risk models:
+- ✅ **FULLY_ENRICHED** - Leases with both tenant and landlord enrichment
+- ✅ **TENANT_ENRICHED** - Leases with tenant enrichment only
+- ✅ **LANDLORD_ENRICHED** - Leases with landlord enrichment only
+- ✅ **BASIC** - Leases without enrichment (fallback model)
 
 ## Features
 
-✨ **Realistic Data Generation:**
-- Industry-appropriate company names
-- Market-based rent pricing (12 major US markets)
-- Realistic lease terms (3, 5, 7, 10 years)
-- Historical and future lease dates
-- Real estate company names for landlords
-- Proper lease types (NNN, Modified Gross, etc.)
+### Realistic Data Generation
+- **20 Major REITs** - Blackstone, Brookfield, Boston Properties, etc.
+- **Varied Industries** - Technology, Healthcare, Finance, Retail (16 sectors)
+- **12 Major Markets** - SF, NYC, Boston, Austin, etc. with market-specific rents
+- **Intelligent Correlations**:
+  - Larger companies → higher health scores
+  - High-risk industries (Retail, Restaurant) → lower financial health
+  - REITs → stronger credit ratings and lower bankruptcy risk
 
-📊 **Dashboard Optimized:**
-- Diverse industries for pie chart visualization
-- Multiple markets for geographic analysis
-- Varied expiration dates for timeline charts
-- Mix of rent levels for distribution analysis
-- Realistic WALT calculations
-- Mix of validation statuses
+### Tenant Enrichment
+Each tenant gets:
+- Financial health score (1-10) based on industry and company size
+- Credit rating (AAA to B) correlated with health score
+- Bankruptcy risk (LOW/MEDIUM/HIGH) based on financials
+- Industry risk assessment
+- Revenue, profit margins, employee count
+- Payment history scores
+- Market cap (if public company)
+- Years in business, locations count
 
-## Prerequisites
+### Landlord Enrichment
+Each landlord (REIT/property company) gets:
+- Financial health score (typically 7-9.5 for REITs)
+- Credit rating (usually A to AAA range)
+- Total assets, market cap, annual revenue
+- Debt-to-equity ratios (realistic for REITs)
+- Portfolio size (properties, total sq ft)
+- Property type focus (Office, Retail, Industrial, etc.)
+- Geographic focus (markets served)
+- Low bankruptcy risk profiles
 
-### Required Dependencies
+### Smart Lease Generation
+- Date ranges: Last 8 years through next 10 years
+- Varied lease terms: 3, 5, 7, and 10 years
+- Market-appropriate rents (SF: $55-95/sqft, Phoenix: $24-40/sqft)
+- Escalation clauses (0-4% annually)
+- Property locations with full addresses
+- Suite numbers and lease types
+
+## Quick Start
+
+### 1. Setup Environment
 
 ```bash
-pip install faker databricks-sdk python-dotenv
+cd DataGeneration
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### Environment Setup
+### 2. Configure Databricks
 
-Ensure your `.env` file in the `FrontEnd/` directory contains:
-
+Create `.env` file:
 ```env
 DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-DATABRICKS_TOKEN=your-databricks-token
+DATABRICKS_TOKEN=your-token-here
 ```
 
-### Databricks Configuration
+### 3. Ensure Tables Exist
 
-1. **SQL Warehouse must be running**
-2. **Update the WAREHOUSE_ID** in `generate_synthetic_leases.py` (line 22)
-   ```python
-   WAREHOUSE_ID = "your-warehouse-id"  # Replace with your ID
-   ```
-3. **bronze_leases table must exist** (created via `DatabricksResources/CreateBronzeTable.sql`)
+Run these SQL scripts in Databricks first:
+1. `DatabricksResources/CreateTenantTable.sql`
+2. `DatabricksResources/CreateLandlordTable.sql`
+3. `DatabricksResources/CreateSilverTable.sql` (updated version with tenant_id/landlord_id)
+4. `DatabricksResources/CreateGoldTable.sql` (enhanced risk model)
 
-## Installation
-
-1. Navigate to the DataGeneration directory:
-   ```bash
-   cd /Users/ray.rosalez/Desktop/Buildathon/fins-lease-extraction-temp/DataGeneration
-   ```
-
-2. Install required packages:
-   ```bash
-   pip install faker databricks-sdk python-dotenv
-   ```
-
-3. Copy your `.env` file (or ensure it exists in parent directory):
-   ```bash
-   # If .env is in FrontEnd directory, it will be found automatically
-   # Or create one here with the same credentials
-   ```
-
-## Usage
-
-### 🚀 Recommended: All-in-One Script
-
-**For data that immediately appears in your frontend:**
+### 4. Generate Data
 
 ```bash
-python generate_and_promote.py
+python generate_enriched_data.py
 ```
 
-Or specify the number of leases directly:
+You'll be prompted for:
+- **Number of leases**: Recommended 50-200 for demo
+- **Enrichment rate**: 0.5-1.0 (0.8 = 80% enriched, 20% basic)
 
-```bash
-python generate_and_promote.py 100
+### 5. Verify Results
+
+Check in Databricks:
+
+```sql
+-- Check landlords
+SELECT COUNT(*), AVG(financial_health_score), AVG(debt_to_equity_ratio)
+FROM fins_team_3.lease_management.landlords;
+
+-- Check tenants
+SELECT bankruptcy_risk, COUNT(*) 
+FROM fins_team_3.lease_management.tenants
+GROUP BY bankruptcy_risk;
+
+-- Check leases with enrichment
+SELECT risk_model_used, COUNT(*), AVG(total_risk_score)
+FROM fins_team_3.lease_management.gold_lease_risk_scores
+GROUP BY risk_model_used;
 ```
 
-This handles the complete pipeline:
-- ✅ Generates synthetic leases
-- ✅ Inserts into bronze_leases
-- ✅ Promotes VERIFIED records to silver_leases
-- ✅ Verifies data is ready
+## What Gets Generated
 
-### Alternative: Manual Two-Step Process
+### Example: 100 Leases with 80% Enrichment
 
-If you prefer more control:
+**Tables Populated:**
+- `landlords`: 20 records (all major REITs)
+- `tenants`: ~70 records (unique companies across leases)
+- `silver_leases`: 100 records with tenant_id and landlord_id
 
-#### Step 1: Generate and Insert to Bronze
+**Risk Model Distribution:**
+- FULLY_ENRICHED: ~64 leases (both tenant & landlord enriched)
+- TENANT_ENRICHED: ~16 leases (tenant only)
+- BASIC: ~20 leases (no enrichment - demonstrates fallback)
 
-```bash
-python generate_synthetic_leases.py
+### Sample Tenant Profile
+
+```
+Tenant: Quantum Data Solutions Inc
+─────────────────────────────────────
+Health Score: 8.2/10
+Credit Rating: A+
+Bankruptcy Risk: LOW
+Industry Risk: MEDIUM (Technology)
+Annual Revenue: $245M
+Employees: 1,200
+Payment History: 87/100
+Market Cap: $1.8B (Public)
+Founded: 2008
+Locations: 12
 ```
 
-#### Step 2: Promote to Silver
+### Sample Landlord Profile
 
-```bash
-python promote_to_silver.py
+```
+Landlord: Boston Properties (BXP)
+──────────────────────────────────────
+Health Score: 8.9/10
+Credit Rating: AA
+Bankruptcy Risk: LOW
+Total Assets: $28.5B
+Market Cap: $15.2B
+Portfolio: 187 properties
+Total Sq Ft: 32.4M
+Property Types: Office, Life Science
+Geographic Focus: Gateway Cities
+Debt/Equity: 0.68
 ```
 
-### Basic Execution (Original Script)
+## Data Quality Features
 
-```bash
-python generate_synthetic_leases.py
-```
+### Realistic Correlations
+1. **Size → Health**: Larger companies (more employees, higher revenue) get better health scores
+2. **Industry → Risk**: Retail/Restaurant sectors get higher risk assessments than Healthcare/Finance
+3. **Health → Credit**: Health score directly influences credit rating
+4. **Credit → Bankruptcy**: Lower credit ratings correlate with higher bankruptcy risk
+5. **REITs → Stability**: All landlords (REITs) have strong financial profiles
 
-You'll be prompted:
-```
-How many synthetic leases to generate? (recommended 50-200):
-```
+### Variance for Testing
+- **10-15% Poor Health** (scores 1-4): Tests high-risk scenarios
+- **40-50% Moderate Health** (scores 4-7): Tests mixed portfolios  
+- **35-45% Good Health** (scores 7-10): Tests low-risk scenarios
 
-**Recommendations:**
-- **Demo/Testing:** 50-100 leases
-- **Full Portfolio Simulation:** 150-200 leases
-- **Small Dataset:** 20-50 leases
+### Edge Cases Included
+- Small companies with high growth (startups)
+- Large companies with low margins (retail chains)
+- Negative revenue growth scenarios
+- High debt/equity ratios
+- Litigation flags (10% of tenants)
+- Private vs public companies
+- Subsidiaries with parent companies
 
-### Example Session
+## Customization
 
-```bash
-$ python generate_synthetic_leases.py
+### Adjust Company Size Mix
 
-============================================================
-Synthetic Lease Data Generator
-============================================================
-
-How many synthetic leases to generate? (recommended 50-200): 100
-
-Generating 100 synthetic leases...
-
-Connecting to Databricks...
-✅ Connected successfully
-
-Generating 100 lease records...
-  Generated 20/100...
-  Generated 40/100...
-  Generated 60/100...
-  Generated 80/100...
-  Generated 100/100...
-✅ Generated 100 lease records
-
-Inserting leases into fins_team_3.lease_management.bronze_leases (batch size: 10)...
-
-  Batch 1/10 (10 leases)... ✅
-  Batch 2/10 (10 leases)... ✅
-  Batch 3/10 (10 leases)... ✅
-  ...
-  Batch 10/10 (10 leases)... ✅
-
-============================================================
-Generation Complete!
-============================================================
-✅ Successfully inserted: 100 leases
-
-Summary Statistics:
-  - Industries: 12
-  - Markets: 12
-  - Landlords: 15
-  - Date range: Last 8 years to +10 years
-
-Next steps:
-  1. Refresh your Streamlit dashboard
-  2. Verify data appears in visualizations
-  3. Test filters and exports
-```
-
-## Generated Data Structure
-
-### Industries (12 total)
-- Technology
-- Healthcare
-- Finance
-- Retail
-- Manufacturing
-- Professional Services
-- Restaurant
-- Fitness
-- Education
-- Legal Services
-- Marketing
-- Consulting
-
-### Markets (12 major US cities)
-Each with realistic rent ranges:
-
-| Market | Rent PSF Range | Typical Square Footage |
-|--------|----------------|------------------------|
-| New York | $60-$100 | 1,500 - 30,000 |
-| San Francisco | $55-$95 | 2,000 - 25,000 |
-| Boston | $45-$75 | 2,000 - 20,000 |
-| Seattle | $40-$70 | 2,500 - 28,000 |
-| Los Angeles | $38-$65 | 2,000 - 30,000 |
-| Austin | $35-$55 | 3,000 - 35,000 |
-| Miami | $35-$60 | 2,000 - 22,000 |
-| Chicago | $32-$52 | 2,500 - 25,000 |
-| Denver | $30-$50 | 3,000 - 26,000 |
-| Dallas | $28-$45 | 3,500 - 35,000 |
-| Atlanta | $25-$42 | 3,000 - 30,000 |
-| Phoenix | $24-$40 | 3,500 - 32,000 |
-
-### Landlords
-15 realistic real estate company names including:
-- Blackstone Property Partners
-- Brookfield Asset Management
-- Prologis Properties
-- Boston Properties
-- And more...
-
-### Tenant Companies
-Generated using Faker library with industry-specific naming:
-- Tech companies: "Cloud Data Solutions Inc"
-- Healthcare: "Medical Care Partners LLC"
-- Finance: "Capital Investment Group"
-- And more...
-
-### Lease Terms
-- **Duration:** 3, 5, 7, or 10 years
-- **Start dates:** Mix of historical (past 8 years) and recent
-- **Escalation:** 0%, 2%, 2.5%, 3%, 3.5%, or 4% annual
-- **Types:** Triple Net (NNN), Modified Gross, Full Service, etc.
-
-## Configuration Options
-
-### Adjust Number of Leases
-Modify the default when prompted, or edit the script:
-
+Edit in `generate_enriched_data.py`:
 ```python
-num_leases = int(input("How many synthetic leases to generate? (recommended 50-200): ") or "100")
+size_tier = random.choices(
+    ["enterprise", "mid", "small"],
+    weights=[0.3, 0.4, 0.3]  # Adjust these weights
+)[0]
 ```
 
-Change `"100"` to your preferred default.
+### Change Risk Distribution
 
-### Adjust Batch Size
-For faster insertion (risk of timeout) or slower (more stable):
-
+Modify industry risk levels:
 ```python
-batch_size = 10  # Default: 10 leases per batch
-```
-
-### Update Warehouse ID
-**Important:** Update line 22 with your actual warehouse ID:
-
-```python
-WAREHOUSE_ID = "288a7ec183eea397"  # Replace with your warehouse ID
-```
-
-Find your warehouse ID in:
-1. Databricks workspace → SQL → Warehouses
-2. Click on your warehouse
-3. Copy the ID from the URL or warehouse details
-
-### Add More Industries/Markets
-
-Edit the lists in the script:
-
-```python
-INDUSTRIES = [
-    "Technology",
-    "Healthcare",
-    # Add more...
-]
-
-MARKETS = {
-    "San Francisco": {"min_rent": 55, "max_rent": 95, "sqft_range": (2000, 25000)},
-    # Add more cities...
+INDUSTRY_RISK = {
+    "Retail": "HIGH",      # Change to "MEDIUM"
+    "Restaurant": "HIGH",   # to reduce risk
+    # ...
 }
+```
+
+### Add More Landlords
+
+Extend `LANDLORD_PROFILES`:
+```python
+LANDLORD_PROFILES = [
+    {"name": "Your REIT Name", "type": "REIT", "ticker": "REIT"},
+    # ...
+]
 ```
 
 ## Troubleshooting
 
-### Connection Errors
+### "Table not found" Error
 
-**Error:** `Failed to connect: ...`
-
-**Solution:**
-1. Check `.env` file exists with correct credentials
-2. Verify DATABRICKS_HOST includes `https://`
-3. Ensure token hasn't expired
-4. Test connection: `databricks workspace ls /` (Databricks CLI)
-
-### Insert Failures
-
-**Error:** `❌ Error: Statement failed`
-
-**Solution:**
-1. Verify SQL Warehouse is running
-2. Check table exists: `SHOW TABLES IN fins_team_3.lease_management;`
-3. Verify table schema matches (run `CreateBronzeTable.sql` if needed)
-4. Check warehouse permissions (need INSERT permission)
-
-### Timeout Errors
-
-**Error:** `wait_timeout exceeded`
-
-**Solution:**
-1. Reduce batch size (change `batch_size = 5`)
-2. Ensure warehouse isn't overloaded
-3. Try again when warehouse is less busy
-
-### Duplicate Data
-
-If you run the script multiple times, you'll get duplicate records. To clear and start fresh:
-
+Solution: Run the table creation scripts first:
 ```sql
 -- In Databricks SQL Editor
-TRUNCATE TABLE fins_team_3.lease_management.bronze_leases;
+USE CATALOG fins_team_3;
+USE SCHEMA lease_management;
+
+-- Run CreateTenantTable.sql
+-- Run CreateLandlordTable.sql  
+-- Run CreateSilverTable.sql (updated version)
 ```
 
-Then re-run the generator.
+### "Warehouse not found" Error
 
-## Verification
-
-### Check Data in Databricks
-
-```sql
--- Count records
-SELECT COUNT(*) FROM fins_team_3.lease_management.bronze_leases;
-
--- Sample records
-SELECT * FROM fins_team_3.lease_management.bronze_leases LIMIT 10;
-
--- Check distribution by industry
-SELECT industry_sector, COUNT(*) as count
-FROM fins_team_3.lease_management.bronze_leases
-GROUP BY industry_sector
-ORDER BY count DESC;
-
--- Check rent range
-SELECT 
-    MIN(base_rent_psf) as min_rent,
-    MAX(base_rent_psf) as max_rent,
-    AVG(base_rent_psf) as avg_rent
-FROM fins_team_3.lease_management.bronze_leases;
+Solution: Update `WAREHOUSE_ID` in the script:
+```python
+WAREHOUSE_ID = "your-warehouse-id-here"
 ```
 
-### View in Dashboard
+Find it in Databricks: SQL Warehouses → Your Warehouse → Connection Details
 
-1. Navigate to your Streamlit app
-2. Click "Refresh Data" button
-3. Verify:
-   - KPI cards show correct totals
-   - Industry pie chart has 12 segments
-   - Timeline chart shows lease expirations
-   - Rent distribution histogram is populated
-   - All data tables display records
+### Slow Insert Performance
 
-## Data Characteristics
-
-### Dashboard Optimization
-
-The generated data is specifically designed to showcase:
-
-1. **Portfolio Overview KPIs**
-   - Wide range of tenants and properties
-   - Realistic averages (rent PSF, WALT)
-   - Mix of industries and markets
-
-2. **Market Analysis Charts**
-   - 12 distinct markets for comparison
-   - Varied lease counts per market
-   - Realistic rent ranges
-
-3. **Timeline Visualization**
-   - Leases expiring across next 10 years
-   - Some already expired for context
-   - Dense visualization for scale demo
-
-4. **Rent Analysis**
-   - Bell curve distribution
-   - Market-appropriate ranges
-   - Industry-based variations
-
-5. **Portfolio Composition**
-   - Balanced industry distribution
-   - Multiple asset types
-   - Diverse tenant base
-
-### Realism Features
-
-- **Names:** Uses Faker library for realistic companies
-- **Rent Prices:** Market-based with realistic ranges
-- **Square Footage:** Appropriate for each market
-- **Lease Terms:** Standard commercial terms
-- **Dates:** Mix of active, expiring, and expired
-- **Validation:** 75% verified, 25% pending (realistic workflow)
-
-## Advanced Usage
-
-### Generate Multiple Datasets
-
-For A/B testing or scenarios:
-
+Solution: Reduce batch size or use smaller datasets for testing:
 ```bash
-# High-risk portfolio
-python generate_synthetic_leases.py  # Generate 100
-# Manually set more short-term leases in code
-
-# Stable portfolio  
-python generate_synthetic_leases.py  # Generate 100
-# Use default settings
+python generate_enriched_data.py
+# Enter: 50 leases (instead of 200)
 ```
 
-### Export Generated Data
+### "Column not found: tenant_id"
 
-To save generated data before inserting:
-
-Add to the script before insertion:
-
-```python
-import json
-
-# Save to JSON file
-with open('generated_leases.json', 'w') as f:
-    json.dump(all_leases, f, indent=2, default=str)
+Solution: You need the updated silver table schema. Run:
+```sql
+-- Drop and recreate with new schema
+DROP TABLE IF EXISTS silver_leases;
+-- Then run updated CreateSilverTable.sql
 ```
-
-### Custom Data Distributions
-
-Modify the generation logic for specific scenarios:
-
-```python
-# Example: More expiring leases
-def generate_lease_dates():
-    years_back = random.randint(4, 6)  # Narrow range
-    term_years = random.choice([5, 7])  # Shorter terms only
-    # ... rest of function
-```
-
-## Best Practices
-
-1. **Start Small:** Generate 20-50 leases first to verify setup
-2. **Verify Schema:** Ensure table schema matches before large runs
-3. **Monitor Warehouse:** Watch for performance issues
-4. **Backup Data:** Export existing data before adding synthetic records
-5. **Clean Slate:** Use TRUNCATE if you want fresh data only
 
 ## Performance
 
-### Generation Speed
-- **100 leases:** ~2-3 seconds to generate
-- **100 leases:** ~5-10 seconds to insert (depends on warehouse)
-- **200 leases:** ~5-6 seconds to generate, ~10-20 seconds to insert
+| Leases | Tenants | Landlords | Time | DB Size |
+|--------|---------|-----------|------|---------|
+| 50     | ~35     | 20        | 30s  | 5KB     |
+| 100    | ~70     | 20        | 1min | 10KB    |
+| 200    | ~140    | 20        | 2min | 20KB    |
+| 500    | ~350    | 20        | 5min | 50KB    |
 
-### Warehouse Impact
-- Minimal impact with default batch size (10)
-- Optimize for larger datasets by increasing batch size
-- Allow warehouse warm-up between large batches
+## Verification Queries
 
-## FAQ
-
-**Q: Can I generate more than 200 leases?**
-A: Yes, but start small to verify everything works. The dashboard handles thousands of records efficiently.
-
-**Q: Will this overwrite existing data?**
-A: No, it only INSERTS new records. Use TRUNCATE TABLE to start fresh.
-
-**Q: Can I customize company names more?**
-A: Yes! Edit the `generate_company_name()` function to use specific names or patterns.
-
-**Q: How do I delete synthetic data?**
-A: Use `TRUNCATE TABLE` or `DELETE FROM ... WHERE validation_status = 'VERIFIED'` to selectively remove.
-
-**Q: Does it work with silver_leases table?**
-A: Yes! Use `generate_and_promote.py` to automatically insert into bronze AND promote to silver. The frontend reads from silver_leases, so this is the recommended approach.
-
-**Q: Why isn't my data appearing in the frontend?**
-A: The frontend reads from `silver_leases` table. Make sure to either:
-   1. Use `generate_and_promote.py` (recommended), OR
-   2. Run `promote_to_silver.py` after `generate_synthetic_leases.py`
-
-**Q: What's the difference between the scripts?**
-A: 
-- `generate_synthetic_leases.py` - Only inserts into bronze_leases
-- `promote_to_silver.py` - Only promotes bronze → silver
-- `generate_and_promote.py` - Does both in one step (recommended!)
-
-## Data Flow
-
-```
-generate_and_promote.py
-   ↓
-[Bronze Table] → VERIFIED records → [Silver Table] → Frontend App
+### Check Enrichment Coverage
+```sql
+SELECT 
+  risk_model_used,
+  COUNT(*) as leases,
+  ROUND(AVG(total_risk_score), 1) as avg_risk,
+  ROUND(AVG(estimated_annual_rent), 0) as avg_rent
+FROM gold_lease_risk_scores
+GROUP BY risk_model_used
+ORDER BY leases DESC;
 ```
 
-The frontend application reads from the `silver_leases` table, so data must be promoted from bronze to silver to appear in the UI.
+### Top Risky Tenants
+```sql
+SELECT 
+  t.tenant_name,
+  t.financial_health_score,
+  t.bankruptcy_risk,
+  COUNT(l.lease_id) as lease_count,
+  SUM(l.estimated_annual_rent) as total_rent
+FROM tenants t
+JOIN silver_leases l ON t.tenant_id = l.tenant_id
+GROUP BY t.tenant_name, t.financial_health_score, t.bankruptcy_risk
+ORDER BY total_rent DESC
+LIMIT 10;
+```
+
+### Landlord Portfolio Stats
+```sql
+SELECT 
+  ll.landlord_name,
+  ll.financial_health_score,
+  ll.credit_rating,
+  COUNT(l.lease_id) as properties_leased,
+  SUM(l.estimated_annual_rent) as noi_from_leases,
+  SUM(l.square_footage) as total_leased_sqft
+FROM landlords ll
+JOIN silver_leases l ON ll.landlord_id = l.landlord_id
+GROUP BY ll.landlord_name, ll.financial_health_score, ll.credit_rating
+ORDER BY noi_from_leases DESC;
+```
+
+## Frontend Demonstration
+
+After generating data, the Risk Assessment page will show:
+
+1. **Enrichment Coverage Card**: Shows 70-80% enrichment rate
+2. **Risk Model Badges**: Mix of FULLY_ENRICHED (green), TENANT_ENRICHED (blue), and BASIC (gray)
+3. **Expandable Details**: Click any lease to see:
+   - Risk component breakdown
+   - Tenant financial profile (health score, credit rating, bankruptcy risk)
+   - Landlord financial profile (REIT metrics, portfolio stats)
+4. **Visual Indicators**: [✓] checkmarks next to enriched tenants/landlords
+
+## Next Steps
+
+1. **Generate baseline data**: 100-200 leases with 80% enrichment
+2. **Test risk models**: Verify all 4 models appear in frontend
+3. **Compare scores**: See how enrichment improves accuracy
+4. **Demo scenarios**:
+   - High-risk lease (Retail tenant, low health score, expiring soon)
+   - Low-risk lease (Healthcare tenant, high health score, long-term)
+   - Mixed portfolio (variety of risk levels and enrichment states)
+
+## Architecture
+
+```
+generate_enriched_data.py
+    │
+    ├─> Generate Landlord Profiles
+    │   └─> Insert into landlords table
+    │
+    ├─> Generate Tenant Profiles
+    │   └─> Insert into tenants table
+    │
+    └─> Generate Leases with IDs
+        └─> Insert into silver_leases table
+            │
+            └─> gold_lease_risk_scores view
+                └─> JOIN with tenants & landlords
+                    └─> Calculate enriched risk scores
+                        └─> Frontend displays results
+```
 
 ## Support
 
 For issues or questions:
-1. Check Databricks SQL history for error details
-2. Verify all prerequisites are met
-3. Test with small dataset first (20 leases)
-4. Check the generated SQL statements in the script
+1. Check `RISK_MODEL_ENRICHMENT.md` for risk calculation details
+2. Check `DEPLOYMENT_GUIDE.md` for database setup
+3. Check `FRONTEND_ENRICHMENT_GUIDE.md` for UI features
 
----
-
-**Happy Data Generating! 🎉**
-
-*Generated data is for demonstration purposes only and does not represent real lease agreements.*
-
+Happy data generation! 🎉

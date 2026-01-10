@@ -139,13 +139,19 @@
   gap: 0.5rem;
 }
 
+.cancel-button:disabled,
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .cancel-button {
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.9);
 }
 
-.cancel-button:hover {
+.cancel-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
@@ -158,10 +164,23 @@
   box-shadow: 0 4px 20px rgba(255, 54, 33, 0.4);
 }
 
-.submit-button:hover {
+.submit-button:hover:not(:disabled) {
   transform: translateY(-3px);
   box-shadow: 0 6px 30px rgba(255, 54, 33, 0.5);
   background: #e62f1d;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .button-icon {

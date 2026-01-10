@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity, FiBookOpen, FiX, FiFileText, FiThumbsUp, FiMinus, FiThumbsDown } from 'react-icons/fi';
 import LeaseMap from './LeaseMap';
 import RiskAssessment from './RiskAssessment';
 import './Portfolio.css';
@@ -18,6 +18,7 @@ const Portfolio = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
 
   useEffect(() => {
     fetchPortfolioData();
@@ -84,7 +85,7 @@ const Portfolio = () => {
       <div className="portfolio">
         <div className="portfolio-container">
           <div className="error-container">
-            <h2>⚠️ Connection Error</h2>
+            <h2>[!] Connection Error</h2>
             <p>{error}</p>
             <p className="error-hint">
               To start the backend server:<br/>
@@ -180,12 +181,6 @@ const Portfolio = () => {
             <FiUser size={16} style={{ marginRight: '0.5rem' }} />
             Tenants ({tenants.length})
           </button>
-          <button 
-            className={`tab-button ${activeTab === 'glossary' ? 'active' : ''}`}
-            onClick={() => setActiveTab('glossary')}
-          >
-            Glossary
-          </button>
         </div>
 
         {activeTab === 'overview' && (
@@ -195,11 +190,69 @@ const Portfolio = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="section-title">Recent Extractions</h2>
+            <h2 className="section-title">Enrichment Overview</h2>
+            <p className="section-description">
+              Summary of enriched tenant and landlord data used to enhance risk assessment accuracy.
+            </p>
+            
+            {/* Enrichment Statistics */}
+            <div className="entity-metrics-grid">
+              <div className="entity-metric-card">
+                <div className="entity-metric-icon tenant-icon">
+                  <FiUser size={24} />
+                </div>
+                <div className="entity-metric-content">
+                  <div className="entity-metric-value">{tenants.length}</div>
+                  <div className="entity-metric-label">Enriched Tenants</div>
+                </div>
+              </div>
+              
+              <div className="entity-metric-card">
+                <div className="entity-metric-icon landlord-icon">
+                  <FiHome size={24} />
+                </div>
+                <div className="entity-metric-content">
+                  <div className="entity-metric-value">{landlords.length}</div>
+                  <div className="entity-metric-label">Enriched Landlords</div>
+                </div>
+              </div>
+              
+              <div className="entity-metric-card">
+                <div className="entity-metric-icon health-icon">
+                  <FiActivity size={24} />
+                </div>
+                <div className="entity-metric-content">
+                  <div className="entity-metric-value">
+                    {tenants.length > 0 
+                      ? (tenants.reduce((sum, t) => sum + (t.financial_health_score || 0), 0) / tenants.length).toFixed(1)
+                      : '-'}
+                  </div>
+                  <div className="entity-metric-label">Avg Tenant Health</div>
+                </div>
+              </div>
+              
+              <div className="entity-metric-card">
+                <div className="entity-metric-icon health-icon">
+                  <FiActivity size={24} />
+                </div>
+                <div className="entity-metric-content">
+                  <div className="entity-metric-value">
+                    {landlords.length > 0 
+                      ? (landlords.reduce((sum, l) => sum + (l.financial_health_score || 0), 0) / landlords.length).toFixed(1)
+                      : '-'}
+                  </div>
+                  <div className="entity-metric-label">Avg Landlord Health</div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="section-title" style={{ marginTop: '2rem' }}>Recent Extractions</h2>
             <div className="extractions-list">
               {recentExtractions.slice(0, 5).map((extraction) => (
                 <div key={extraction.id} className="extraction-item">
-                  <div className="extraction-icon">📋</div>
+                  <div className="extraction-icon">
+                    <FiFileText size={28} />
+                  </div>
                   <div className="extraction-info">
                     <div className="extraction-name">{extraction.name}</div>
                     <div className="extraction-meta">
@@ -325,6 +378,9 @@ const Portfolio = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="section-title">Landlord Profiles</h2>
+            <p className="section-description">
+              Financial profiles of property owners and REITs with credit ratings, portfolio statistics, and market data enriched through MCP web search.
+            </p>
             
             {/* Landlord Aggregate Metrics */}
             <div className="entity-metrics-grid">
@@ -424,10 +480,11 @@ const Portfolio = () => {
                 <div className="sentiment-grid">
                   {['POSITIVE', 'NEUTRAL', 'NEGATIVE'].map(sentiment => {
                     const count = landlords.filter(l => l.recent_news_sentiment === sentiment).length;
+                    const IconComponent = sentiment === 'POSITIVE' ? FiThumbsUp : sentiment === 'NEUTRAL' ? FiMinus : FiThumbsDown;
                     return (
                       <div key={sentiment} className={`sentiment-item sentiment-${sentiment.toLowerCase()}`}>
-                        <span className="sentiment-emoji">
-                          {sentiment === 'POSITIVE' ? '😊' : sentiment === 'NEUTRAL' ? '😐' : '😟'}
+                        <span className="sentiment-icon">
+                          <IconComponent size={24} />
                         </span>
                         <span className="sentiment-count">{count}</span>
                         <span className="sentiment-label">{sentiment}</span>
@@ -503,6 +560,9 @@ const Portfolio = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="section-title">Tenant Profiles</h2>
+            <p className="section-description">
+              Financial profiles of tenant companies including health scores, credit ratings, bankruptcy risk assessment, and operational metrics enriched through MCP web search.
+            </p>
             
             {/* Tenant Aggregate Metrics */}
             <div className="entity-metrics-grid">
@@ -674,71 +734,170 @@ const Portfolio = () => {
             </div>
           </motion.div>
         )}
-
-        {activeTab === 'glossary' && (
-          <motion.div 
-            className="glossary-section"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="section-title">Glossary of Terms</h2>
-            <div className="glossary-grid">
-              <div className="glossary-card">
-                <div className="glossary-term">PSF</div>
-                <div className="glossary-full-term">Price Per Square Foot</div>
-                <div className="glossary-definition">
-                  A standard commercial real estate metric that represents the annual rental cost 
-                  divided by the total rentable square footage of a space. PSF allows for easy 
-                  comparison of rental rates across properties of different sizes. For example, 
-                  a lease with $50 PSF on a 10,000 sq ft space would have an annual rent of $500,000.
-                </div>
-                <div className="glossary-formula">
-                  <span className="formula-label">Formula:</span>
-                  <code>PSF = Annual Base Rent ÷ Rentable Square Feet</code>
-                </div>
-              </div>
-
-              <div className="glossary-card">
-                <div className="glossary-term">WALT</div>
-                <div className="glossary-full-term">Weighted Average Lease Term</div>
-                <div className="glossary-definition">
-                  A key portfolio metric that calculates the average remaining lease duration, 
-                  weighted by each lease's contribution to total rental income or square footage. 
-                  WALT helps investors understand the stability of cash flows and the timeline 
-                  for potential vacancy risk. A higher WALT generally indicates more stable, 
-                  long-term income streams.
-                </div>
-                <div className="glossary-formula">
-                  <span className="formula-label">Formula:</span>
-                  <code>WALT = Σ(Remaining Term × Annual Rent) ÷ Total Annual Rent</code>
-                </div>
-              </div>
-
-              <div className="glossary-card">
-                <div className="glossary-term">Risk Score</div>
-                <div className="glossary-full-term">Tenant Credit & Lease Risk Assessment</div>
-                <div className="glossary-definition">
-                  A composite score (typically 1-10) that evaluates the overall risk profile of 
-                  a lease or tenant. Factors considered may include tenant creditworthiness, 
-                  industry stability, lease term remaining, rental rate relative to market, 
-                  and geographic concentration. Lower scores indicate lower risk, while higher 
-                  scores suggest increased attention may be needed.
-                </div>
-                <div className="glossary-factors">
-                  <span className="factors-label">Key Factors:</span>
-                  <ul>
-                    <li>Tenant credit rating & financial health</li>
-                    <li>Industry sector volatility</li>
-                    <li>Time until lease expiration</li>
-                    <li>Market rent comparison</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
       </div>
+
+      {/* Floating Glossary Button */}
+      <button 
+        className="floating-glossary-button" 
+        onClick={() => setGlossaryOpen(!glossaryOpen)}
+        title="Reference Guide"
+      >
+        <FiBookOpen size={24} />
+      </button>
+
+      {/* Glossary Modal Popup */}
+      <AnimatePresence>
+        {glossaryOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              className="glossary-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setGlossaryOpen(false)}
+            />
+            
+            {/* Modal Container for Centering */}
+            <div className="glossary-modal-container">
+              <motion.div
+                className="glossary-modal"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              >
+              <div className="glossary-modal-header">
+                <h2 className="glossary-modal-title">
+                  <FiBookOpen size={28} />
+                  Reference Guide
+                </h2>
+                <button className="glossary-modal-close" onClick={() => setGlossaryOpen(false)}>
+                  <FiX size={28} />
+                </button>
+              </div>
+
+              <div className="glossary-modal-content">
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">PSF</div>
+                  <div className="glossary-full-term">Price Per Square Foot</div>
+                  <div className="glossary-definition">
+                    A standard commercial real estate metric that represents the annual rental cost 
+                    divided by the total rentable square footage of a space. PSF allows for easy 
+                    comparison of rental rates across properties of different sizes.
+                  </div>
+                  <div className="glossary-formula">
+                    <span className="formula-label">Formula:</span>
+                    <code>PSF = Annual Base Rent ÷ Rentable Square Feet</code>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">WALT</div>
+                  <div className="glossary-full-term">Weighted Average Lease Term</div>
+                  <div className="glossary-definition">
+                    A key portfolio metric that calculates the average remaining lease duration, 
+                    weighted by each lease's contribution to total rental income or square footage. 
+                    WALT helps investors understand the stability of cash flows and the timeline 
+                    for potential vacancy risk.
+                  </div>
+                  <div className="glossary-formula">
+                    <span className="formula-label">Formula:</span>
+                    <code>WALT = Σ(Remaining Term × Annual Rent) ÷ Total Annual Rent</code>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">Risk Score</div>
+                  <div className="glossary-full-term">Tenant Credit & Lease Risk Assessment</div>
+                  <div className="glossary-definition">
+                    A composite score (typically 1-10) that evaluates the overall risk profile of 
+                    a lease or tenant. Factors considered include tenant creditworthiness, 
+                    industry stability, lease term remaining, and rental rate relative to market.
+                  </div>
+                  <div className="glossary-factors">
+                    <span className="factors-label">Key Factors:</span>
+                    <ul>
+                      <li>Tenant credit rating & financial health</li>
+                      <li>Industry sector volatility</li>
+                      <li>Time until lease expiration</li>
+                      <li>Market rent comparison</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">Enrichment</div>
+                  <div className="glossary-full-term">Data Enrichment via MCP</div>
+                  <div className="glossary-definition">
+                    The process of augmenting basic lease data with external financial, credit, and 
+                    operational information about tenants and landlords. This enrichment uses the 
+                    Model Context Protocol (MCP) to fetch real-time web data including financial statements, 
+                    credit ratings, market cap, bankruptcy risk, and news sentiment.
+                  </div>
+                  <div className="glossary-factors">
+                    <span className="factors-label">Enriched Data Types:</span>
+                    <ul>
+                      <li>Financial health scores & credit ratings</li>
+                      <li>Market capitalization & stock performance</li>
+                      <li>Bankruptcy risk assessment</li>
+                      <li>Recent news sentiment analysis</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">Financial Health Score</div>
+                  <div className="glossary-full-term">Tenant/Landlord Financial Health Score</div>
+                  <div className="glossary-definition">
+                    A normalized score (0-10) that represents the overall financial strength and 
+                    stability of a tenant or landlord entity. This score is derived from multiple 
+                    financial metrics including revenue, profit margin, debt-to-equity ratio, cash 
+                    reserves, and revenue growth trends.
+                  </div>
+                  <div className="glossary-formula">
+                    <span className="formula-label">Components:</span>
+                    <code>Health Score = f(Revenue, Profit Margin, Debt Ratio, Cash Position, Growth)</code>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">Adaptive Risk Models</div>
+                  <div className="glossary-full-term">Dynamic Risk Scoring Framework</div>
+                  <div className="glossary-definition">
+                    A flexible risk assessment system that automatically adjusts scoring methodology 
+                    based on available enrichment data. Four models are used: FULLY_ENRICHED (both 
+                    tenant and landlord data), TENANT_ENRICHED (only tenant data), LANDLORD_ENRICHED 
+                    (only landlord data), and BASIC (no enrichment).
+                  </div>
+                  <div className="glossary-factors">
+                    <span className="factors-label">Model Types:</span>
+                    <ul>
+                      <li>FULLY_ENRICHED - Both tenant & landlord data</li>
+                      <li>TENANT_ENRICHED - Only tenant financial data</li>
+                      <li>LANDLORD_ENRICHED - Only landlord financial data</li>
+                      <li>BASIC - Lease-specific factors only</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="glossary-card-vertical">
+                  <div className="glossary-term">MCP</div>
+                  <div className="glossary-full-term">Model Context Protocol</div>
+                  <div className="glossary-definition">
+                    An open protocol that enables AI systems to securely connect with external data 
+                    sources and tools. In this application, MCP is used to fetch real-time financial, 
+                    operational, and market data about tenants and landlords from web sources. This 
+                    allows the system to enrich lease records with current information beyond what's 
+                    available in the original lease documents.
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

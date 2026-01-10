@@ -11,7 +11,6 @@ const Upload = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [processingStage, setProcessingStage] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [isTimeout, setIsTimeout] = useState(false);
   
@@ -38,10 +37,17 @@ const Upload = () => {
       const data = await response.json();
       
       if (response.ok) {
-        setNewRecords(data);
+        // Sort by uploaded_at descending (most recent first)
+        const sortedData = data.sort((a, b) => {
+          const dateA = new Date(a.uploaded_at || 0);
+          const dateB = new Date(b.uploaded_at || 0);
+          return dateB - dateA; // Descending order
+        });
+        
+        setNewRecords(sortedData);
         // Store original records for tracking edits
         const originals = {};
-        data.forEach(record => {
+        sortedData.forEach(record => {
           originals[record.extraction_id] = { ...record };
         });
         setOriginalRecords(originals);
@@ -128,7 +134,16 @@ const Upload = () => {
           
           try {
             const checkResponse = await fetch(
-              `/api/check-processing/${encodeURIComponent(result.file_path)}`
+              `/api/check-processing`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  file_path: result.file_path
+                })
+              }
             );
             
             const processResult = await checkResponse.json();
@@ -221,7 +236,6 @@ const Upload = () => {
   const handleEnrichmentComplete = () => {
     console.log('Enrichment complete');
     setUploadState('success');
-    setUploadSuccess(true);
     
     setTimeout(() => {
       resetUpload();
@@ -231,7 +245,6 @@ const Upload = () => {
   const handleSkipEnrichment = () => {
     console.log('Enrichment skipped');
     setUploadState('success');
-    setUploadSuccess(true);
     
     setTimeout(() => {
       resetUpload();
@@ -244,7 +257,6 @@ const Upload = () => {
     setProcessingStage(0);
     setExtractedData(null);
     setValidatedLeaseData(null);
-    setUploadSuccess(false);
     setError(null);
     setIsTimeout(false);
     fetchNewRecords(); // Refresh the validation list
@@ -654,6 +666,7 @@ const Upload = () => {
                           onChange={handleSelectAll}
                         />
                       </th>
+                      <th>Upload Date/Time</th>
                       <th>Tenant</th>
                       <th>Landlord</th>
                       <th>Property City</th>
@@ -674,6 +687,16 @@ const Upload = () => {
                             onChange={() => handleRecordSelect(record.extraction_id)}
                             disabled={editingRecord === record.extraction_id}
                           />
+                        </td>
+                        <td>
+                          {record.uploaded_at ? new Date(record.uploaded_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          }) : '-'}
                         </td>
                         <td>
                           {editingRecord === record.extraction_id ? (

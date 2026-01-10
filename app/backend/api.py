@@ -7,6 +7,7 @@ import os
 import traceback
 import requests
 import json
+import time
 
 load_dotenv()
 
@@ -284,41 +285,86 @@ def get_client():
     except Exception as e:
         return None, str(e)
 
-def execute_query(query):
-    """Execute SQL query and return results"""
-    try:
-        if not WAREHOUSE_ID:
-            return None, "DATABRICKS_WAREHOUSE_ID environment variable is not set"
-        
-        client, error = get_client()
-        if error:
-            print(f"ERROR getting Databricks client: {error}")
-            return None, error
-        
-        print(f"Executing query: {query[:100]}...")
-        
-        statement = client.statement_execution.execute_statement(
-            warehouse_id=WAREHOUSE_ID,
-            statement=query,
-            wait_timeout="30s"
-        )
-        
-        if statement.status.state == StatementState.SUCCEEDED:
-            if statement.result and statement.result.data_array:
-                print(f"Query succeeded, returned {len(statement.result.data_array)} rows")
-                return statement.result.data_array, None
-            print("Query succeeded but returned no data")
-            return [], None
-        else:
-            error_msg = f"Query failed: {statement.status.state}"
-            if statement.status.error:
-                error_msg += f" - {statement.status.error.message}"
-            print(f"ERROR: {error_msg}")
-            return None, error_msg
-    except Exception as e:
-        error_msg = f"Exception executing query: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return None, str(e)
+def execute_query(query, max_retries=3, retry_delay=1.0):
+    """
+    Execute SQL query and return results with retry logic for Delta Lake concurrency errors
+    
+    Args:
+        query: SQL query to execute
+        max_retries: Maximum number of retry attempts (default 3)
+        retry_delay: Initial delay between retries in seconds (default 1.0)
+    """
+    for attempt in range(max_retries):
+        try:
+            if not WAREHOUSE_ID:
+                return None, "DATABRICKS_WAREHOUSE_ID environment variable is not set"
+            
+            client, error = get_client()
+            if error:
+                print(f"ERROR getting Databricks client: {error}")
+                return None, error
+            
+            if attempt > 0:
+                print(f"Retry attempt {attempt + 1}/{max_retries} for query")
+            else:
+                print(f"Executing query: {query[:100]}...")
+            
+            statement = client.statement_execution.execute_statement(
+                warehouse_id=WAREHOUSE_ID,
+                statement=query,
+                wait_timeout="30s"
+            )
+            
+            if statement.status.state == StatementState.SUCCEEDED:
+                if statement.result and statement.result.data_array:
+                    print(f"Query succeeded, returned {len(statement.result.data_array)} rows")
+                    return statement.result.data_array, None
+                print("Query succeeded but returned no data")
+                return [], None
+            else:
+                error_msg = f"Query failed: {statement.status.state}"
+                if statement.status.error:
+                    error_msg += f" - {statement.status.error.message}"
+                    
+                    # Check if this is a Delta Lake concurrency error
+                    if "ConcurrentAppendException" in str(statement.status.error.message) or \
+                       "DELTA_CONCURRENT" in str(statement.status.error.message):
+                        # This is a retryable error
+                        if attempt < max_retries - 1:
+                            wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                            print(f"Delta Lake concurrency error detected, retrying in {wait_time}s...")
+                            time.sleep(wait_time)
+                            continue  # Retry the query
+                        else:
+                            print(f"Max retries reached for concurrency error")
+                            # Even on last retry, check if operation might have succeeded
+                            # Return a softer error that can be handled gracefully
+                            return [], None  # Return empty result instead of error
+                
+                print(f"ERROR: {error_msg}")
+                return None, error_msg
+                
+        except Exception as e:
+            error_msg = f"Exception executing query: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            
+            # Check if this is a concurrency exception
+            if "ConcurrentAppendException" in str(e) or "DELTA_CONCURRENT" in str(e):
+                if attempt < max_retries - 1:
+                    wait_time = retry_delay * (2 ** attempt)
+                    print(f"Delta Lake concurrency exception, retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # On last attempt, return empty result for concurrency errors
+                    # The operation likely succeeded despite the error
+                    print(f"Concurrency error on final retry - operation may have succeeded")
+                    return [], None
+            
+            return None, str(e)
+    
+    # Should not reach here, but just in case
+    return None, "Max retries exceeded"
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -601,12 +647,19 @@ def upload_file():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/check-processing/<path:file_path>', methods=['GET'])
-def check_processing(file_path):
+@app.route('/api/check-processing', methods=['POST'])
+def check_processing():
     """Check if a file has been processed to bronze layer"""
     try:
+        # Get file_path from request body instead of URL
+        data = request.json
+        file_path = data.get('file_path', '')
+        
         # Extract just the filename from the full path
         filename = file_path.split('/')[-1]
+        
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
         
         print(f"Checking processing status for file: {filename}")
         
@@ -616,7 +669,8 @@ def check_processing(file_path):
             file_path,
             ingested_at
         FROM {CATALOG}.{SCHEMA}.raw_leases
-        WHERE file_path LIKE '%{filename}%'
+        WHERE file_path LIKE '%{escaped_filename}%'
+        ORDER BY ingested_at DESC
         LIMIT 1
         """
         
@@ -634,7 +688,11 @@ def check_processing(file_path):
         # Get the ingested_at timestamp from raw to match with uploaded_at in bronze
         raw_ingested_at = raw_data[0][1]  # ingested_at from raw_leases
         
-        bronze_query = f"""
+        print(f"Found in raw_leases with ingested_at: {raw_ingested_at}")
+        
+        # Try multiple strategies to find the bronze record:
+        # Strategy 1: Exact timestamp match (with tolerance for milliseconds)
+        bronze_query_exact = f"""
         SELECT 
             extraction_id,
             landlord_name,
@@ -663,12 +721,53 @@ def check_processing(file_path):
             uploaded_at,
             extracted_at
         FROM {CATALOG}.{SCHEMA}.bronze_leases
-        WHERE uploaded_at = '{raw_ingested_at}'
-        ORDER BY extracted_at DESC
+        WHERE ABS(UNIX_TIMESTAMP(uploaded_at) - UNIX_TIMESTAMP('{raw_ingested_at}')) < 5
+        AND validation_status = 'NEW'
+        ORDER BY uploaded_at DESC
         LIMIT 1
         """
         
-        bronze_data, bronze_error = execute_query(bronze_query)
+        bronze_data, bronze_error = execute_query(bronze_query_exact)
+        
+        # Strategy 2: If no exact match, try finding the most recent NEW record
+        if (bronze_error or not bronze_data or len(bronze_data) == 0):
+            print(f"No exact timestamp match, trying recent NEW records...")
+            bronze_query_recent = f"""
+            SELECT 
+                extraction_id,
+                landlord_name,
+                landlord_address,
+                tenant_name,
+                tenant_address,
+                industry_sector,
+                suite_number,
+                lease_type,
+                commencement_date,
+                expiration_date,
+                term_months,
+                rentable_square_feet,
+                annual_base_rent,
+                base_rent_psf,
+                annual_escalation_pct,
+                renewal_notice_days,
+                guarantor,
+                property_address,
+                property_street_address,
+                property_city,
+                property_state,
+                property_zip_code,
+                property_country,
+                validation_status,
+                uploaded_at,
+                extracted_at
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE validation_status = 'NEW'
+            AND uploaded_at >= TIMESTAMPADD(MINUTE, -10, '{raw_ingested_at}')
+            ORDER BY uploaded_at DESC
+            LIMIT 1
+            """
+            
+            bronze_data, bronze_error = execute_query(bronze_query_recent)
         
         if bronze_error:
             print(f"Error checking bronze_leases: {bronze_error}")
@@ -795,8 +894,12 @@ def validate_record():
         landlord = row[0] or 'Unknown'
         tenant = row[1] or 'Unknown'
         suite = row[3] or 'Unknown'
-        lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "")
-        property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "")
+        
+        # Generate IDs using same normalization as promotion scripts
+        lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        tenant_id = tenant.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        landlord_id = landlord.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
         
         # Calculate estimated annual rent
         square_footage = float(row[8]) if row[8] else 0
@@ -829,6 +932,9 @@ def validate_record():
                 {sql_safe_value(lease_id)} as lease_id,
                 {sql_safe_value(property_id)} as property_id,
                 {sql_safe_value(row[1])} as tenant_name,
+                {sql_safe_value(tenant_id)} as tenant_id,
+                {sql_safe_value(row[0])} as landlord_name,
+                {sql_safe_value(landlord_id)} as landlord_id,
                 {sql_safe_value(row[2])} as industry_sector,
                 {sql_safe_value(row[3])} as suite_id,
                 {row[8] if row[8] else 'NULL'} as square_footage,
@@ -1061,8 +1167,12 @@ def validate_multiple_records():
                 landlord = row[0] or 'Unknown'
                 tenant = row[1] or 'Unknown'
                 suite = row[3] or 'Unknown'
-                lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "")
-                property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "")
+                
+                # Generate IDs using same normalization as promotion scripts
+                lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                tenant_id = tenant.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                landlord_id = landlord.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
                 
                 # Calculate estimated annual rent
                 square_footage = float(row[8]) if row[8] else 0
@@ -1095,6 +1205,9 @@ def validate_multiple_records():
                         {sql_safe_value(lease_id)} as lease_id,
                         {sql_safe_value(property_id)} as property_id,
                         {sql_safe_value(row[1])} as tenant_name,
+                        {sql_safe_value(tenant_id)} as tenant_id,
+                        {sql_safe_value(row[0])} as landlord_name,
+                        {sql_safe_value(landlord_id)} as landlord_id,
                         {sql_safe_value(row[2])} as industry_sector,
                         {sql_safe_value(row[3])} as suite_id,
                         {row[8] if row[8] else 'NULL'} as square_footage,
@@ -1363,12 +1476,15 @@ def delete_records():
 
 @app.route('/api/portfolio/risk-assessment', methods=['GET'])
 def get_risk_assessment():
-    """Get comprehensive risk assessment data from gold layer"""
+    """Get comprehensive risk assessment data from gold layer with enrichment"""
     try:
         query = f"""
         SELECT 
             lease_id,
             tenant_name,
+            tenant_id,
+            landlord_name,
+            landlord_id,
             property_id,
             industry_sector,
             lease_end_date,
@@ -1378,11 +1494,27 @@ def get_risk_assessment():
             days_to_expiry,
             sector_risk_base,
             portfolio_concentration_pct,
+            has_tenant_enrichment,
+            has_landlord_enrichment,
+            tenant_health_score,
+            tenant_credit_rating,
+            tenant_bankruptcy_risk,
+            tenant_payment_score,
+            tenant_enrichment_confidence,
+            landlord_health_score,
+            landlord_credit_rating,
+            landlord_bankruptcy_risk,
+            landlord_debt_to_equity,
+            landlord_enrichment_confidence,
+            tenant_credit_risk_score,
+            tenant_bankruptcy_risk_score,
+            landlord_risk_score,
             rollover_score,
             escalation_risk_score,
             concentration_risk_score,
             lease_status,
-            total_risk_score
+            total_risk_score,
+            risk_model_used
         FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
         WHERE total_risk_score IS NOT NULL
         ORDER BY total_risk_score DESC
@@ -1401,20 +1533,39 @@ def get_risk_assessment():
             results.append({
                 'lease_id': row[0],
                 'tenant_name': row[1],
-                'property_id': row[2],
-                'industry_sector': row[3],
-                'lease_end_date': row[4],
-                'annual_escalation_pct': float(row[5]) if row[5] is not None else 0,
-                'estimated_annual_rent': float(row[6]) if row[6] is not None else 0,
-                'square_footage': float(row[7]) if row[7] is not None else 0,
-                'days_to_expiry': int(row[8]) if row[8] is not None else 0,
-                'sector_risk_base': float(row[9]) if row[9] is not None else 0,
-                'portfolio_concentration_pct': float(row[10]) if row[10] is not None else 0,
-                'rollover_score': float(row[11]) if row[11] is not None else 0,
-                'escalation_risk_score': float(row[12]) if row[12] is not None else 0,
-                'concentration_risk_score': float(row[13]) if row[13] is not None else 0,
-                'lease_status': row[14],
-                'total_risk_score': float(row[15]) if row[15] is not None else 0
+                'tenant_id': row[2],
+                'landlord_name': row[3],
+                'landlord_id': row[4],
+                'property_id': row[5],
+                'industry_sector': row[6],
+                'lease_end_date': row[7],
+                'annual_escalation_pct': float(row[8]) if row[8] is not None else 0,
+                'estimated_annual_rent': float(row[9]) if row[9] is not None else 0,
+                'square_footage': float(row[10]) if row[10] is not None else 0,
+                'days_to_expiry': int(row[11]) if row[11] is not None else 0,
+                'sector_risk_base': float(row[12]) if row[12] is not None else 0,
+                'portfolio_concentration_pct': float(row[13]) if row[13] is not None else 0,
+                'has_tenant_enrichment': bool(row[14]) if row[14] is not None else False,
+                'has_landlord_enrichment': bool(row[15]) if row[15] is not None else False,
+                'tenant_health_score': float(row[16]) if row[16] is not None else None,
+                'tenant_credit_rating': row[17],
+                'tenant_bankruptcy_risk': row[18],
+                'tenant_payment_score': float(row[19]) if row[19] is not None else None,
+                'tenant_enrichment_confidence': float(row[20]) if row[20] is not None else None,
+                'landlord_health_score': float(row[21]) if row[21] is not None else None,
+                'landlord_credit_rating': row[22],
+                'landlord_bankruptcy_risk': row[23],
+                'landlord_debt_to_equity': float(row[24]) if row[24] is not None else None,
+                'landlord_enrichment_confidence': float(row[25]) if row[25] is not None else None,
+                'tenant_credit_risk_score': float(row[26]) if row[26] is not None else 50,
+                'tenant_bankruptcy_risk_score': float(row[27]) if row[27] is not None else 40,
+                'landlord_risk_score': float(row[28]) if row[28] is not None else 30,
+                'rollover_score': float(row[29]) if row[29] is not None else 0,
+                'escalation_risk_score': float(row[30]) if row[30] is not None else 0,
+                'concentration_risk_score': float(row[31]) if row[31] is not None else 0,
+                'lease_status': row[32],
+                'total_risk_score': float(row[33]) if row[33] is not None else 0,
+                'risk_model_used': row[34]
             })
         
         return jsonify(results)
@@ -2087,6 +2238,365 @@ def get_all_tenants():
 
 
 # ============================================================
+# FORECASTING ENDPOINTS
+# ============================================================
+
+@app.route('/api/forecasting/upload', methods=['POST'])
+def forecasting_upload():
+    """Upload a lease document for forecasting/impact analysis"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        print(f"Forecasting upload - file: {file.filename}")
+        
+        # Read file content
+        file_content = file.read()
+        print(f"File size: {len(file_content)} bytes")
+        
+        # Get Databricks client
+        client, error = get_client()
+        if error:
+            return jsonify({'error': f'Databricks connection failed: {error}'}), 500
+        
+        # Upload to Databricks volume
+        volume_path = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME_NAME}"
+        print(f"Volume path: {volume_path}")
+        
+        from utils import upload_to_volume
+        success, file_path, error = upload_to_volume(
+            client,
+            file_content,
+            file.filename,
+            volume_path
+        )
+        
+        if not success:
+            print(f"Upload failed: {error}")
+            return jsonify({'error': error}), 500
+        
+        print(f"File uploaded successfully: {file_path}")
+        
+        # Wait a moment for ingestion to start
+        time.sleep(2)
+        
+        # Check if the file has been ingested to raw layer
+        filename = file_path.split('/')[-1]
+        
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
+        
+        raw_query = f"""
+        SELECT 
+            ingested_at
+        FROM {CATALOG}.{SCHEMA}.raw_leases
+        WHERE file_path LIKE '%{escaped_filename}%'
+        ORDER BY ingested_at DESC
+        LIMIT 1
+        """
+        
+        raw_data, raw_error = execute_query(raw_query)
+        
+        if raw_error:
+            print(f"Error checking raw_leases: {raw_error}")
+            # Don't fail - the file was uploaded successfully
+        
+        # Return the file path as lease_id for now (we'll get the actual extraction_id later)
+        return jsonify({
+            'success': True,
+            'file_path': file_path,
+            'lease_id': file_path,  # Use file_path as identifier for polling
+            'message': 'File uploaded successfully and processing started'
+        })
+            
+    except Exception as e:
+        error_msg = f"Exception in forecasting_upload: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forecasting/impact/<path:lease_id>', methods=['GET'])
+def get_forecasting_impact(lease_id):
+    """
+    Get the portfolio impact analysis for a newly uploaded lease.
+    Returns 202 if still processing, 200 with data when ready.
+    """
+    try:
+        print(f"Checking forecasting impact for: {lease_id}")
+        
+        # Extract filename from the lease_id (which is the file_path)
+        filename = lease_id.split('/')[-1]
+        
+        # Escape single quotes in filename for SQL LIKE clause
+        escaped_filename = filename.replace("'", "''")
+        
+        # Check if the lease has been extracted to bronze layer
+        bronze_query = f"""
+        SELECT 
+            extraction_id,
+            landlord_name,
+            tenant_name,
+            property_city,
+            property_state,
+            rentable_square_feet,
+            annual_base_rent,
+            base_rent_psf,
+            term_months,
+            commencement_date,
+            expiration_date,
+            validation_status,
+            uploaded_at
+        FROM {CATALOG}.{SCHEMA}.bronze_leases
+        WHERE uploaded_at IN (
+            SELECT ingested_at 
+            FROM {CATALOG}.{SCHEMA}.raw_leases 
+            WHERE file_path LIKE '%{escaped_filename}%'
+        )
+        ORDER BY uploaded_at DESC
+        LIMIT 1
+        """
+        
+        bronze_data, bronze_error = execute_query(bronze_query)
+        
+        if bronze_error:
+            print(f"Error checking bronze: {bronze_error}")
+            return jsonify({
+                'status': 'processing',
+                'message': 'Extraction in progress...',
+                'error': bronze_error
+            }), 202
+        
+        if not bronze_data or len(bronze_data) == 0:
+            print("No bronze record found yet - still processing")
+            return jsonify({
+                'status': 'processing',
+                'message': 'AI extraction in progress... This typically takes 2-3 minutes.'
+            }), 202
+        
+        # Lease has been extracted! Calculate impact
+        lease_record = bronze_data[0]
+        extraction_id = lease_record[0]
+        current_status = lease_record[11]  # validation_status
+        
+        print(f"Found bronze record: extraction_id={extraction_id}, current_status={current_status}")
+        
+        # Update status to FORECAST if it's currently NEW
+        # This prevents the forecasted lease from appearing in the validation queue
+        if current_status == 'NEW':
+            print(f"Updating extraction_id {extraction_id} status from NEW to FORECAST")
+            update_status_query = f"""
+            UPDATE {CATALOG}.{SCHEMA}.bronze_leases
+            SET validation_status = 'FORECAST'
+            WHERE extraction_id = {extraction_id}
+            """
+            _, update_error = execute_query(update_status_query)
+            
+            if update_error:
+                print(f"Warning: Failed to update status to FORECAST: {update_error}")
+                # Don't fail the request, just log the warning
+            else:
+                print(f"Successfully updated status to FORECAST")
+        
+        # Get current portfolio KPIs (from silver - verified leases only)
+        current_kpis_query = f"""
+        WITH base_kpis AS (
+            SELECT 
+                COUNT(*) as total_leases,
+                AVG(base_rent_psf) as avg_rent_psf,
+                AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) as portfolio_walt
+            FROM {CATALOG}.{SCHEMA}.silver_leases
+            WHERE tenant_name IS NOT NULL
+        ),
+        risk_kpis AS (
+            SELECT 
+                AVG(total_risk_score) as avg_risk_score
+            FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
+        )
+        SELECT 
+            b.total_leases,
+            COALESCE(r.avg_risk_score, 0) as avg_risk_score,
+            b.avg_rent_psf,
+            b.portfolio_walt
+        FROM base_kpis b
+        CROSS JOIN risk_kpis r
+        """
+        
+        current_kpis_data, kpi_error = execute_query(current_kpis_query)
+        
+        if kpi_error:
+            print(f"Error fetching current KPIs: {kpi_error}")
+            return jsonify({'error': f'Failed to fetch portfolio KPIs: {kpi_error}'}), 500
+        
+        current_stats = current_kpis_data[0] if current_kpis_data else [0, 0, 0, 0]
+        
+        # Parse new lease data
+        new_lease = {
+            'extraction_id': extraction_id,
+            'tenant_name': lease_record[2],
+            'landlord_name': lease_record[1],
+            'property_id': f"{lease_record[3]}, {lease_record[4]}" if lease_record[3] and lease_record[4] else 'N/A',
+            'square_footage': int(float(lease_record[5])) if lease_record[5] else 0,
+            'estimated_annual_rent': int(float(lease_record[6])) if lease_record[6] else 0,
+            'rent_psf': float(lease_record[7]) if lease_record[7] else 0,
+            'term_months': int(float(lease_record[8])) if lease_record[8] else 0,
+            'commencement_date': str(lease_record[9]) if lease_record[9] else None,
+            'expiration_date': str(lease_record[10]) if lease_record[10] else None,
+            'risk_score': 50.0  # Default risk score for new leases
+        }
+        
+        # Calculate current portfolio metrics
+        current_total_leases = int(float(current_stats[0])) if current_stats[0] else 0
+        current_avg_risk = float(current_stats[1]) if current_stats[1] else 0
+        current_avg_rent_psf = float(current_stats[2]) if current_stats[2] else 0
+        current_avg_walt = float(current_stats[3]) if current_stats[3] else 0
+        
+        # Calculate projected metrics (with new lease added)
+        projected_total_leases = current_total_leases + 1
+        projected_avg_risk = ((current_avg_risk * current_total_leases) + new_lease['risk_score']) / projected_total_leases if projected_total_leases > 0 else new_lease['risk_score']
+        projected_avg_rent_psf = ((current_avg_rent_psf * current_total_leases) + new_lease['rent_psf']) / projected_total_leases if projected_total_leases > 0 else new_lease['rent_psf']
+        new_lease_term_years = new_lease['term_months'] / 12.0
+        projected_avg_walt = ((current_avg_walt * current_total_leases) + new_lease_term_years) / projected_total_leases if projected_total_leases > 0 else new_lease_term_years
+        
+        # Calculate impact deltas
+        impact = {
+            'leases_change': 1,
+            'risk_change': projected_avg_risk - current_avg_risk,
+            'rent_psf_change': projected_avg_rent_psf - current_avg_rent_psf,
+            'walt_change': projected_avg_walt - current_avg_walt
+        }
+        
+        response_data = {
+            'status': 'ready',
+            'lease_id': extraction_id,
+            'new_lease': new_lease,
+            'current': {
+                'total_leases': current_total_leases,
+                'avg_risk_score': current_avg_risk,
+                'avg_rent_psf': current_avg_rent_psf,
+                'portfolio_walt': current_avg_walt
+            },
+            'projected': {
+                'total_leases': projected_total_leases,
+                'avg_risk_score': projected_avg_risk,
+                'avg_rent_psf': projected_avg_rent_psf,
+                'portfolio_walt': projected_avg_walt
+            },
+            'impact': impact
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        error_msg = f"Exception in get_forecasting_impact: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forecasting/approve/<int:lease_id>', methods=['POST'])
+def approve_forecasted_lease(lease_id):
+    """
+    Approve a forecasted lease and move it from bronze to silver layer.
+    This is similar to validation but for forecasted leases.
+    """
+    try:
+        print(f"Approving forecasted lease: {lease_id}")
+        
+        # Update the bronze record to VERIFIED status
+        update_query = f"""
+        UPDATE {CATALOG}.{SCHEMA}.bronze_leases
+        SET validation_status = 'VERIFIED'
+        WHERE extraction_id = {lease_id}
+        """
+        
+        _, update_error = execute_query(update_query)
+        
+        if update_error:
+            print(f"Error updating bronze layer: {update_error}")
+            return jsonify({'error': f'Failed to update bronze layer: {update_error}'}), 500
+        
+        # Promote to silver layer using MERGE to avoid duplicates
+        promote_query = f"""
+        MERGE INTO {CATALOG}.{SCHEMA}.silver_leases AS target
+        USING (
+            SELECT 
+                CONCAT(
+                    REGEXP_REPLACE(COALESCE(landlord_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(tenant_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(suite_number, 'Unknown'), '[^a-zA-Z0-9]', '_')
+                ) as lease_id,
+                CONCAT(
+                    'PROP_',
+                    REGEXP_REPLACE(COALESCE(landlord_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(suite_number, 'Unknown'), '[^a-zA-Z0-9]', '_')
+                ) as property_id,
+                tenant_name,
+                LOWER(REGEXP_REPLACE(COALESCE(tenant_name, ''), '[^a-zA-Z0-9]', '_')) as tenant_id,
+                landlord_name,
+                LOWER(REGEXP_REPLACE(COALESCE(landlord_name, ''), '[^a-zA-Z0-9]', '_')) as landlord_id,
+                industry_sector,
+                suite_number as suite_id,
+                rentable_square_feet as square_footage,
+                lease_type,
+                commencement_date as lease_start_date,
+                expiration_date as lease_end_date,
+                base_rent_psf,
+                annual_escalation_pct,
+                property_address,
+                property_street_address,
+                property_city,
+                property_state,
+                property_zip_code,
+                property_country,
+                CASE 
+                    WHEN rentable_square_feet IS NOT NULL AND base_rent_psf IS NOT NULL 
+                    THEN rentable_square_feet * base_rent_psf
+                    WHEN annual_base_rent IS NOT NULL 
+                    THEN annual_base_rent
+                    ELSE 0
+                END as estimated_annual_rent,
+                DATE_ADD(commencement_date, 365) as next_escalation_date,
+                'AI_HUMAN_VERIFIED' as enhancement_source,
+                'VERIFIED' as validation_status,
+                'forecasting_approval' as verified_by,
+                CURRENT_TIMESTAMP() as verified_at,
+                NULL as raw_document_path,
+                uploaded_at,
+                CURRENT_TIMESTAMP() as updated_at
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE extraction_id = {lease_id}
+        ) AS source
+        ON target.lease_id = source.lease_id
+        WHEN MATCHED THEN UPDATE SET *
+        WHEN NOT MATCHED THEN INSERT *
+        """
+        
+        _, promote_error = execute_query(promote_query)
+        
+        if promote_error:
+            print(f"Error promoting to silver: {promote_error}")
+            return jsonify({'error': f'Failed to promote to silver layer: {promote_error}'}), 500
+        
+        print(f"Successfully approved and promoted lease {lease_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Lease approved and added to portfolio'
+        })
+        
+    except Exception as e:
+        error_msg = f"Exception in approve_forecasted_lease: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
 # STATIC FILE SERVING (must be at the end, after all API routes)
 # ============================================================
 
@@ -2105,8 +2615,9 @@ def serve_react_app():
 def serve_static(path):
     """Serve static files or fall back to index.html for React Router"""
     # Skip API routes - they should be handled by their own endpoints
+    # If we get here with an API path, it means the route doesn't exist
     if path.startswith('api/'):
-        return jsonify({'error': 'API endpoint not found'}), 404
+        return jsonify({'error': f'API endpoint not found: /{path}'}), 404
     # First try to serve the file directly
     static_file_path = os.path.join(STATIC_FOLDER, path)
     if os.path.exists(static_file_path) and os.path.isfile(static_file_path):

@@ -5,13 +5,16 @@ USE SCHEMA lease_management;
 --DROP TABLE IF EXISTS silver_leases;
 
 -- Recreate with the complete schema needed for auto-promotion
-CREATE TABLE silver_leases (
+CREATE TABLE IF NOT EXISTS silver_leases (
     -- Primary Keys
     lease_id STRING COMMENT 'Unique lease identifier (landlord_tenant_suite)',
     property_id STRING COMMENT 'Property identifier (PROP_landlord_suite)',
     
     -- Core Business Fields
     tenant_name STRING,
+    tenant_id STRING COMMENT 'Foreign key to tenants table (derived from tenant_name)',
+    landlord_name STRING COMMENT 'Name of the landlord/property owner',
+    landlord_id STRING COMMENT 'Foreign key to landlords table (derived from landlord_name)',
     industry_sector STRING COMMENT 'Normalized industry (Healthcare, Retail, etc.)',
     suite_id STRING,
     square_footage DOUBLE,

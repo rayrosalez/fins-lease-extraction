@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { 
   FiHome, FiUser, FiBriefcase, FiMapPin, FiFileText,
   FiCalendar, FiClock, FiMaximize, FiDollarSign, FiTrendingUp,
-  FiBell, FiEdit3, FiCheckCircle, FiCpu, FiBarChart2
+  FiBell, FiEdit3, FiCheckCircle, FiCpu, FiBarChart2, FiLoader
 } from 'react-icons/fi';
 import './ValidationForm.css';
 
@@ -34,6 +34,7 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
   });
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -54,9 +55,16 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      onSubmit(formData);
+      setIsSubmitting(true);
+      try {
+        await onSubmit(formData);
+      } catch (error) {
+        console.error('Validation submission error:', error);
+        setIsSubmitting(false);
+      }
+      // Note: Don't set isSubmitting to false here - let the parent component handle navigation
     }
   };
 
@@ -139,12 +147,29 @@ const ValidationForm = ({ record, onSubmit, onCancel }) => {
       </div>
 
       <div className="validation-actions">
-        <button className="cancel-button" onClick={onCancel}>
+        <button 
+          className="cancel-button" 
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancel
         </button>
-        <button className="submit-button" onClick={handleSubmit}>
-          <span>Validate & Submit</span>
-          <span className="button-arrow">→</span>
+        <button 
+          className="submit-button" 
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <FiLoader className="spinning" size={20} />
+              <span>Validating...</span>
+            </>
+          ) : (
+            <>
+              <span>Validate & Submit</span>
+              <span className="button-arrow">→</span>
+            </>
+          )}
         </button>
       </div>
 
