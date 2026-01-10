@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity, FiBookOpen, FiX, FiFileText } from 'react-icons/fi';
+import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity, FiBookOpen, FiX, FiFileText, FiThumbsUp, FiMinus, FiThumbsDown } from 'react-icons/fi';
 import LeaseMap from './LeaseMap';
 import RiskAssessment from './RiskAssessment';
 import './Portfolio.css';
@@ -480,11 +480,11 @@ const Portfolio = () => {
                 <div className="sentiment-grid">
                   {['POSITIVE', 'NEUTRAL', 'NEGATIVE'].map(sentiment => {
                     const count = landlords.filter(l => l.recent_news_sentiment === sentiment).length;
-                    const icon = sentiment === 'POSITIVE' ? '[+]' : sentiment === 'NEUTRAL' ? '[o]' : '[-]';
+                    const IconComponent = sentiment === 'POSITIVE' ? FiThumbsUp : sentiment === 'NEUTRAL' ? FiMinus : FiThumbsDown;
                     return (
                       <div key={sentiment} className={`sentiment-item sentiment-${sentiment.toLowerCase()}`}>
                         <span className="sentiment-icon">
-                          {icon}
+                          <IconComponent size={24} />
                         </span>
                         <span className="sentiment-count">{count}</span>
                         <span className="sentiment-label">{sentiment}</span>

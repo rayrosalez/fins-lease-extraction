@@ -894,8 +894,12 @@ def validate_record():
         landlord = row[0] or 'Unknown'
         tenant = row[1] or 'Unknown'
         suite = row[3] or 'Unknown'
-        lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "")
-        property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "")
+        
+        # Generate IDs using same normalization as promotion scripts
+        lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        tenant_id = tenant.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+        landlord_id = landlord.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
         
         # Calculate estimated annual rent
         square_footage = float(row[8]) if row[8] else 0
@@ -928,6 +932,9 @@ def validate_record():
                 {sql_safe_value(lease_id)} as lease_id,
                 {sql_safe_value(property_id)} as property_id,
                 {sql_safe_value(row[1])} as tenant_name,
+                {sql_safe_value(tenant_id)} as tenant_id,
+                {sql_safe_value(row[0])} as landlord_name,
+                {sql_safe_value(landlord_id)} as landlord_id,
                 {sql_safe_value(row[2])} as industry_sector,
                 {sql_safe_value(row[3])} as suite_id,
                 {row[8] if row[8] else 'NULL'} as square_footage,
@@ -1160,8 +1167,12 @@ def validate_multiple_records():
                 landlord = row[0] or 'Unknown'
                 tenant = row[1] or 'Unknown'
                 suite = row[3] or 'Unknown'
-                lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "")
-                property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "")
+                
+                # Generate IDs using same normalization as promotion scripts
+                lease_id = f"{landlord}_{tenant}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                property_id = f"PROP_{landlord}_{suite}".replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                tenant_id = tenant.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
+                landlord_id = landlord.replace(' ', '_').replace("'", "").replace(',', '').replace('.', '').lower()
                 
                 # Calculate estimated annual rent
                 square_footage = float(row[8]) if row[8] else 0
@@ -1194,6 +1205,9 @@ def validate_multiple_records():
                         {sql_safe_value(lease_id)} as lease_id,
                         {sql_safe_value(property_id)} as property_id,
                         {sql_safe_value(row[1])} as tenant_name,
+                        {sql_safe_value(tenant_id)} as tenant_id,
+                        {sql_safe_value(row[0])} as landlord_name,
+                        {sql_safe_value(landlord_id)} as landlord_id,
                         {sql_safe_value(row[2])} as industry_sector,
                         {sql_safe_value(row[3])} as suite_id,
                         {row[8] if row[8] else 'NULL'} as square_footage,
@@ -2504,29 +2518,63 @@ def approve_forecasted_lease(lease_id):
             print(f"Error updating bronze layer: {update_error}")
             return jsonify({'error': f'Failed to update bronze layer: {update_error}'}), 500
         
-        # Promote to silver layer
+        # Promote to silver layer using MERGE to avoid duplicates
         promote_query = f"""
-        INSERT INTO {CATALOG}.{SCHEMA}.silver_leases (
-            extraction_id, uploaded_at, landlord_name, landlord_address, tenant_name, 
-            tenant_address, industry_sector, suite_number, lease_type, 
-            commencement_date, expiration_date, term_months, rentable_square_feet, 
-            annual_base_rent, base_rent_psf, annual_escalation_pct, 
-            renewal_notice_days, guarantor, 
-            property_address, property_street_address, property_city, 
-            property_state, property_zip_code, property_country, 
-            validated_at
-        )
-        SELECT 
-            extraction_id, uploaded_at, landlord_name, landlord_address, tenant_name, 
-            tenant_address, industry_sector, suite_number, lease_type, 
-            commencement_date, expiration_date, term_months, rentable_square_feet, 
-            annual_base_rent, base_rent_psf, annual_escalation_pct, 
-            renewal_notice_days, guarantor, 
-            property_address, property_street_address, property_city, 
-            property_state, property_zip_code, property_country, 
-            CURRENT_TIMESTAMP() as validated_at
-        FROM {CATALOG}.{SCHEMA}.bronze_leases
-        WHERE extraction_id = {lease_id}
+        MERGE INTO {CATALOG}.{SCHEMA}.silver_leases AS target
+        USING (
+            SELECT 
+                CONCAT(
+                    REGEXP_REPLACE(COALESCE(landlord_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(tenant_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(suite_number, 'Unknown'), '[^a-zA-Z0-9]', '_')
+                ) as lease_id,
+                CONCAT(
+                    'PROP_',
+                    REGEXP_REPLACE(COALESCE(landlord_name, 'Unknown'), '[^a-zA-Z0-9]', '_'),
+                    '_',
+                    REGEXP_REPLACE(COALESCE(suite_number, 'Unknown'), '[^a-zA-Z0-9]', '_')
+                ) as property_id,
+                tenant_name,
+                LOWER(REGEXP_REPLACE(COALESCE(tenant_name, ''), '[^a-zA-Z0-9]', '_')) as tenant_id,
+                landlord_name,
+                LOWER(REGEXP_REPLACE(COALESCE(landlord_name, ''), '[^a-zA-Z0-9]', '_')) as landlord_id,
+                industry_sector,
+                suite_number as suite_id,
+                rentable_square_feet as square_footage,
+                lease_type,
+                commencement_date as lease_start_date,
+                expiration_date as lease_end_date,
+                base_rent_psf,
+                annual_escalation_pct,
+                property_address,
+                property_street_address,
+                property_city,
+                property_state,
+                property_zip_code,
+                property_country,
+                CASE 
+                    WHEN rentable_square_feet IS NOT NULL AND base_rent_psf IS NOT NULL 
+                    THEN rentable_square_feet * base_rent_psf
+                    WHEN annual_base_rent IS NOT NULL 
+                    THEN annual_base_rent
+                    ELSE 0
+                END as estimated_annual_rent,
+                DATE_ADD(commencement_date, 365) as next_escalation_date,
+                'AI_HUMAN_VERIFIED' as enhancement_source,
+                'VERIFIED' as validation_status,
+                'forecasting_approval' as verified_by,
+                CURRENT_TIMESTAMP() as verified_at,
+                NULL as raw_document_path,
+                uploaded_at,
+                CURRENT_TIMESTAMP() as updated_at
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE extraction_id = {lease_id}
+        ) AS source
+        ON target.lease_id = source.lease_id
+        WHEN MATCHED THEN UPDATE SET *
+        WHEN NOT MATCHED THEN INSERT *
         """
         
         _, promote_error = execute_query(promote_query)
