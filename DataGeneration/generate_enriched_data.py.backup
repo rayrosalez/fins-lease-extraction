@@ -31,13 +31,6 @@ from pathlib import Path
 # Import S&P 500 companies
 sp500_path = Path(__file__).parent.parent / 'LeaseGeneration'
 sys.path.insert(0, str(sp500_path))
-from sp500_companies import SP500_COMPANIES, COMPANY_SECTORS
-import sys
-from pathlib import Path
-
-# Import S&P 500 companies
-sp500_path = Path(__file__).parent.parent / 'LeaseGeneration'
-sys.path.insert(0, str(sp500_path))
 from sp500_companies import SP500_COMPANIES, COMPANY_SECTORS, get_sector_for_company
 
 # Load environment variables
@@ -152,26 +145,8 @@ def get_real_company_for_industry(industry):
         # Fallback to any S&P 500 company
         return random.choice(SP500_COMPANIES)
 
-def get_real_company_for_industry(industry):
-    """Get a real S&P 500 company that matches the industry"""
-    matching_companies = [
-        company for company, sector in COMPANY_SECTORS.items()
-        if sector == industry or 
-        (industry == "Technology" and sector in ["Technology", "Media & Entertainment"]) or
-        (industry in ["Finance", "Financial Services"] and sector in ["Financial Services", "Insurance"]) or
-        (industry == "Healthcare" and sector in ["Healthcare", "Pharmaceuticals"]) or
-        (industry == "Retail" and sector == "Retail") or
-        (industry == "Restaurant" and company in ["McDonald's Corporation", "Starbucks Corporation", "Chipotle Mexican Grill Inc.", "Yum! Brands Inc."]) or
-        (industry == "Manufacturing" and sector in ["Manufacturing", "Industrial", "Aerospace"]) or
-        (industry == "Energy" and sector == "Energy") or
-        (industry == "Telecommunications" and sector in ["Telecommunications", "Media & Entertainment"])
-    ]
-    if matching_companies:
-        return random.choice(matching_companies)
-    return random.choice(SP500_COMPANIES)
-
 def generate_company_name(industry):
-    """Generate company name - now uses REAL S&P 500 companies"""
+    """Generate realistic company name - now uses REAL S&P 500 companies"""
     return get_real_company_for_industry(industry)
 
 def generate_tenant_enrichment(tenant_name, industry):
@@ -193,16 +168,8 @@ def generate_tenant_enrichment(tenant_name, industry):
     else:  # HIGH
         base_health = random.uniform(3.0, 6.5)
     
-    # Check if this is a real S&P 500 company
-    is_sp500 = tenant_name in SP500_COMPANIES
-    
-    # S&P 500 companies are typically enterprise-sized
-    if is_sp500:
-        size_tier = random.choices(["enterprise", "mid"], weights=[0.9, 0.1])[0]
-        employee_count = random.randint(5000, 150000)
-        annual_revenue = random.uniform(1_000_000_000, 500_000_000_000)
-        health_score = min(10.0, base_health + random.uniform(0.5, 1.5))
-    elif size_tier == "enterprise":
+    # Size adjustment
+    if size_tier == "enterprise":
         health_score = min(10.0, base_health + random.uniform(0.5, 1.5))
         employee_count = random.randint(5000, 50000)
         annual_revenue = random.uniform(500_000_000, 10_000_000_000)
@@ -256,21 +223,8 @@ def generate_tenant_enrichment(tenant_name, industry):
     )[0]
     
     if company_type == "Public":
-        if is_sp500:
-            # Generate realistic ticker from company name
-            words = tenant_name.upper().replace(',', '').replace('.', '').split()
-            if len(words) == 1:
-                ticker = words[0][:4]
-            elif words[0] in ['THE', 'A', 'AN']:
-                ticker = words[1][:4]
-            else:
-                ticker = ''.join([w[0] for w in words[:min(4, len(words))]])
-            ticker = ticker[:5]
-            stock_ticker = ticker
-            market_cap = annual_revenue * random.uniform(2, 12)
-        else:
-            stock_ticker = f"{tenant_name[:3].upper()}{random.randint(10, 99)}"
-            market_cap = annual_revenue * random.uniform(2, 8)
+        market_cap = annual_revenue * random.uniform(2, 8)
+        stock_ticker = f"{tenant_name[:3].upper()}{random.randint(10, 99)}"
     else:
         market_cap = None
         stock_ticker = None
@@ -418,71 +372,17 @@ def generate_landlord_enrichment(landlord_profile):
     }
 
 def generate_lease_dates():
-    """Generate ACTIVE lease dates - all leases currently active with varying future expirations"""
-    from datetime import date
+    """Generate realistic lease start and end dates with variety"""
+    years_back = random.randint(1, 8)
+    start_date = datetime.now() - timedelta(days=years_back * 365 + random.randint(0, 364))
     
-    today = date.today()
-    
-    # Lease term: 3, 5, 7, or 10 years
-    term_years = random.choice([3, 5, 7, 10])
+    # Varied lease terms
+    term_years = random.choice([3, 3, 5, 5, 5, 7, 7, 10])
     term_months = term_years * 12
     
-    # Create varied expiration scenarios - ALL IN THE FUTURE
-    # Increased weight for "soon" to create more elevated risk scenarios
-    scenario = random.choices(
-        ["soon", "medium", "far"],
-        weights=[0.35, 0.35, 0.30]  # 35% soon (HIGH RISK), 35% medium, 30% far
-    )[0]
+    end_date = start_date + timedelta(days=term_years * 365)
     
-    if scenario == "soon":
-        # Expiring in next 3-12 months (high rollover risk)
-        months_until_expiry = random.randint(3, 12)
-        end_date = today + timedelta(days=months_until_expiry * 30)
-        # Calculate start date by going back the term length
-        start_date = end_date - timedelta(days=int(term_years * 365.25))
-        
-    elif scenario == "medium":
-        # Expiring in 1-3 years (moderate planning horizon)
-        months_until_expiry = random.randint(13, 36)
-        end_date = today + timedelta(days=months_until_expiry * 30)
-        start_date = end_date - timedelta(days=int(term_years * 365.25))
-        
-    else:  # "far"
-        # Expiring in 3-10 years (stable, low rollover risk)
-        months_until_expiry = random.randint(37, 120)
-        end_date = today + timedelta(days=months_until_expiry * 30)
-        start_date = end_date - timedelta(days=int(term_years * 365.25))
-    
-    # Enforce commencement date constraints: 8 years ago to 6 months future
-    eight_years_ago = today - timedelta(days=8 * 365)
-    six_months_future = today + timedelta(days=180)
-    
-    if start_date < eight_years_ago:
-        # Start date too old - move it forward to 8 years ago
-        days_to_adjust = (eight_years_ago - start_date).days
-        start_date = eight_years_ago
-        # Adjust end date forward by same amount to maintain active lease
-        end_date = end_date + timedelta(days=days_to_adjust)
-        
-    elif start_date > six_months_future:
-        # Start date too far in future - move it back to 6 months from now
-        days_to_adjust = (start_date - six_months_future).days
-        start_date = six_months_future
-        # Adjust end date back by same amount
-        end_date = end_date - timedelta(days=days_to_adjust)
-    
-    # Final safety check: ensure end date is always in the future
-    if end_date <= today:
-        # Force end date to be at least 3 months in the future
-        end_date = today + timedelta(days=90)
-        start_date = end_date - timedelta(days=int(term_years * 365.25))
-        # Re-check start date constraint after adjustment
-        if start_date < eight_years_ago:
-            start_date = eight_years_ago
-            # For very short remaining leases, recalculate end date
-            end_date = start_date + timedelta(days=int(term_years * 365.25))
-    
-    return start_date, end_date, term_months
+    return start_date.date(), end_date.date(), term_months
 
 def generate_address(city, state, state_abbr, zip_range):
     """Generate a realistic street address"""

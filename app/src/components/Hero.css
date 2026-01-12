@@ -3,6 +3,8 @@
   padding: 8rem 2rem 4rem;
   max-width: 1400px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 /* Hero Header */
@@ -1137,5 +1139,15 @@
   .formats-grid {
     max-height: 300px;
     overflow-y: auto;
+  }
+}
+
+/* Spinning animation for refresh icon */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
