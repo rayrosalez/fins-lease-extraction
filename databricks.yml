@@ -1,0 +1,19 @@
+# This is a Databricks asset bundle definition for fins-lease-extraction-for-repe.
+# The Databricks extension requires databricks.yml configuration file.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: fins-lease-extraction-for-repe
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://fe-vm-industry-solutions-buildathon.cloud.databricks.com
+
+  ## Optionally, there could be 'staging' or 'prod' targets here.
+  #
+  # prod:
+  #   workspace:
+  #     host: https://fe-vm-industry-solutions-buildathon.cloud.databricks.com
