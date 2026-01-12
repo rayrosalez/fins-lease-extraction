@@ -462,6 +462,43 @@
   color: #EF4444;
 }
 
+/* No Enrichment Data */
+.no-enrichment-data {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 2rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 16px;
+}
+
+.no-enrichment-data h3 {
+  color: #F59E0B;
+  font-size: 1.5rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.no-enrichment-data p {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0.5rem 0;
+}
+
+.no-enrichment-data ul {
+  text-align: left;
+  max-width: 400px;
+  margin: 1rem auto;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.no-enrichment-data li {
+  margin: 0.5rem 0;
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .enrichment-cards {
