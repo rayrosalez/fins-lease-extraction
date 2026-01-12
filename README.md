@@ -96,6 +96,34 @@ DatabricksResources/DirectoryCreation.py
 - Validation workflow for human review
 - Automatic promotion to structured tables
 
+### 🔄 Demo Data Reset (for Presenters)
+- **One-click reset button** in top-right corner of Hero page
+- **Professional modal interface** with progress tracking
+- **Configurable:** Generate 10-500 leases (default: 50)
+- **Real S&P 500 companies** as tenants (Apple, Microsoft, etc.)
+- **Full enrichment:** Landlords (major REITs) and tenants with financial profiles
+- **Current data:** All leases active within last 8 years
+- **Varied risk distribution:** 35% expiring soon, 35% medium term, 30% far future
+- **Auto-refresh:** Page reloads with new data after completion
+- **Perfect for demos:** Clean slate before presentations
+
+**How to Use:**
+1. Click "Reset Demo" button (top-right, dark theme)
+2. Enter number of leases (10-500)
+3. Preview what will be generated
+4. Click "Reset & Generate" and confirm
+5. Watch 4-stage progress: Purge → Optimize → Generate → Verify
+6. Page auto-refreshes with fresh data
+
+**What Gets Generated:**
+- ✅ Verified leases directly in silver layer (no bronze clutter)
+- ✅ Real company names with realistic tickers and financials
+- ✅ ~70% with tenant enrichment (credit ratings, health scores)
+- ✅ ~20 major REITs as landlords with full profiles
+- ✅ Active leases with commencement dates: 8 years ago to 6 months future
+- ✅ Expiration dates: 35% soon (3-12 months), 35% medium (1-3 years), 30% far (3-10 years)
+- ✅ Elevated risk scenarios for compelling demos
+
 ### 📊 Portfolio Analytics
 - Real-time KPI dashboard
 - Interactive lease map visualization
@@ -165,6 +193,16 @@ Gold Layer     → Risk scores and analytics with adaptive models
 - **[app/RISK_TROUBLESHOOTING.md](app/RISK_TROUBLESHOOTING.md)** - Risk assessment debugging guide
 - **[LeaseGeneration/README.md](LeaseGeneration/README.md)** - Synthetic lease PDF generator
 - **[DataGeneration/README.md](DataGeneration/README.md)** - Test data generation utilities
+
+### Demo Reset Feature
+The **Reset Demo** button allows presenters to quickly regenerate the entire dataset with realistic, enriched data:
+- Located in top-right corner of Hero page (dark-themed button with red accent)
+- Opens professional modal with configurable lease count (10-500)
+- Shows real-time progress through 4 stages with animated progress bar
+- Generates real S&P 500 companies with accurate financial data
+- Creates varied expiration dates for realistic risk distribution
+- Auto-refreshes browser to display new data
+- Perfect for starting demos with clean, compelling data
 
 ## 🔧 Development
 
@@ -253,9 +291,10 @@ Total Risk Score = Weighted sum of four components:
 
 The enriched model reveals that despite being in a high-risk industry, the tenant's excellent financial health and stable landlord reduce overall risk by 27 points!
 
-## 🧪 Testing with Synthetic Data
+## 🧪 Testing & Demo Preparation
 
-Generate realistic test leases:
+### Generate Synthetic Lease PDFs
+Create realistic PDF lease documents for upload testing:
 
 ```bash
 cd LeaseGeneration
@@ -264,6 +303,24 @@ python generate_leases.py  # Generates 10 sample PDFs
 ```
 
 Upload generated PDFs through the web interface to test the full pipeline.
+
+### Reset Demo Data
+Quickly generate fresh, realistic data for presentations:
+
+1. **Click "Reset Demo"** button (top-right corner of Hero page)
+2. **Configure:** Enter desired number of leases (10-500, default 50)
+3. **Preview:** See what will be generated (leases, tenants, landlords)
+4. **Execute:** Click "Reset & Generate" and confirm
+5. **Monitor:** Watch progress through 4 stages (Purge → Optimize → Generate → Verify)
+6. **Refresh:** Page auto-reloads with new data in ~60 seconds
+
+**Generated Data Quality:**
+- Real S&P 500 company names (Apple, Microsoft, Amazon, etc.)
+- Accurate stock tickers and financial metrics
+- Active leases with realistic dates (8 years ago to 6 months future)
+- 35% high-risk (expiring 3-12 months) for compelling demos
+- Full tenant/landlord enrichment (~70% coverage)
+- All leases marked as VERIFIED in silver layer
 
 ## 📖 Glossary
 

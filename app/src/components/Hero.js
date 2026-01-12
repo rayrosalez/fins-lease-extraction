@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiUploadCloud, FiCpu, FiZap, FiCheckCircle, FiBarChart2, 
   FiMessageSquare, FiShield, FiTrendingUp, FiDatabase, FiLayers, FiSearch,
-  FiFileText, FiFile, FiImage, FiX
+  FiFileText, FiFile, FiImage, FiX, FiRefreshCw
 } from 'react-icons/fi';
 import './Hero.css';
+import ResetModal from './ResetModal';
 
 const Hero = ({ onNavigate }) => {
   const [activeModal, setActiveModal] = useState(null);
+  const [showResetModal, setShowResetModal] = useState(false);
   const pipelineStages = [
     {
       icon: FiUploadCloud,
@@ -87,6 +89,56 @@ const Hero = ({ onNavigate }) => {
 
   return (
     <div className="hero-new">
+      {/* Subtle Demo Reset Button (top right corner) */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 9999
+      }}>
+        <button
+          onClick={() => setShowResetModal(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            fontSize: '12px',
+            fontWeight: '600',
+            color: 'rgba(255, 255, 255, 0.7)',
+            backgroundColor: 'rgba(30, 30, 30, 0.9)',
+            border: '1px solid rgba(255, 54, 33, 0.3)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(10px)'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(255, 54, 33, 0.15)';
+            e.currentTarget.style.borderColor = '#FF3621';
+            e.currentTarget.style.color = '#FF3621';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 54, 33, 0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = 'rgba(30, 30, 30, 0.9)';
+            e.currentTarget.style.borderColor = 'rgba(255, 54, 33, 0.3)';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+          }}
+          title="Reset demo data (for presenters)"
+        >
+          <FiRefreshCw size={14} />
+          Reset Demo
+        </button>
+      </div>
+
+      {/* Reset Modal */}
+      <ResetModal 
+        isOpen={showResetModal} 
+        onClose={() => setShowResetModal(false)} 
+      />
+
       {/* Main Hero Section */}
       <motion.div 
         className="hero-header"

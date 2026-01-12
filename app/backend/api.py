@@ -8,6 +8,7 @@ import traceback
 import requests
 import json
 import time
+import subprocess
 
 load_dotenv()
 
@@ -2596,6 +2597,182 @@ def approve_forecasted_lease(lease_id):
         error_msg = f"Exception in approve_forecasted_lease: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
+# DATA RESET ENDPOINT (for demo/presentation purposes)
+# ============================================================
+
+@app.route('/api/reset-demo-data', methods=['POST'])
+def reset_demo_data():
+    """
+    Purge all data and repopulate with synthetic enriched data.
+    Creates leases directly in silver layer with associated landlords and tenants.
+    For demo/presentation purposes only.
+    """
+    try:
+        # Get number of leases from request
+        data = request.get_json() or {}
+        num_leases = data.get('num_leases', 50)
+        
+        # Validate input
+        if not isinstance(num_leases, int) or num_leases < 1 or num_leases > 500:
+            return jsonify({'error': 'num_leases must be between 1 and 500'}), 400
+        
+        client = WorkspaceClient()
+        
+        # Step 1: Purge all data from tables
+        print(f"\n🗑️  Purging all data...")
+        
+        purge_queries = [
+            # Must delete in order due to foreign key relationships
+            f"DELETE FROM {CATALOG}.{SCHEMA}.silver_leases",
+            f"DELETE FROM {CATALOG}.{SCHEMA}.tenants",
+            f"DELETE FROM {CATALOG}.{SCHEMA}.landlords",
+            f"DELETE FROM {CATALOG}.{SCHEMA}.bronze_leases",
+        ]
+        
+        for query in purge_queries:
+            statement = client.statement_execution.execute_statement(
+                warehouse_id=WAREHOUSE_ID,
+                statement=query,
+                wait_timeout="50s"
+            )
+            if statement.status.state != StatementState.SUCCEEDED:
+                error_msg = f"Failed to purge: {statement.status.error.message if statement.status.error else 'Unknown error'}"
+                print(f"❌ {error_msg}")
+                return jsonify({'error': error_msg}), 500
+        
+        print("✅ All data purged successfully")
+        
+        # Step 2: Optimize Delta tables
+        print("\n🔧 Optimizing Delta tables...")
+        optimize_queries = [
+            f"OPTIMIZE {CATALOG}.{SCHEMA}.bronze_leases",
+            f"OPTIMIZE {CATALOG}.{SCHEMA}.silver_leases",
+            f"OPTIMIZE {CATALOG}.{SCHEMA}.tenants",
+            f"OPTIMIZE {CATALOG}.{SCHEMA}.landlords",
+        ]
+        
+        for query in optimize_queries:
+            try:
+                client.statement_execution.execute_statement(
+                    warehouse_id=WAREHOUSE_ID,
+                    statement=query,
+                    wait_timeout="50s"
+                )
+            except Exception as e:
+                print(f"⚠️  Optimization warning: {str(e)}")
+        
+        print("✅ Delta tables optimized")
+        
+        # Step 3: Generate enriched synthetic data directly in silver layer
+        print(f"\n📊 Generating {num_leases} enriched leases...")
+        
+        # Import generation functions from DataGeneration folder
+        from pathlib import Path
+        import sys
+        data_gen_path = Path(__file__).parent.parent.parent / 'DataGeneration'
+        sys.path.insert(0, str(data_gen_path))
+        
+        try:
+            from generate_enriched_data import (
+                generate_synthetic_lease_data,
+                insert_landlords,
+                insert_tenants,
+                insert_leases,
+                WAREHOUSE_ID as GEN_WAREHOUSE_ID
+            )
+            
+            # Generate comprehensive data with 80% enrichment rate
+            enrichment_rate = 0.8
+            data = generate_synthetic_lease_data(num_leases, enrichment_rate)
+            
+            print(f"✅ Generated data:")
+            print(f"   - {len(data['leases'])} leases")
+            print(f"   - {len(data['tenants'])} tenants (with enrichment)")
+            print(f"   - {len(data['landlords'])} landlords (with enrichment)")
+            
+            # Insert in order: landlords -> tenants -> leases
+            print("\n📥 Inserting data into database...")
+            
+            insert_landlords(client, WAREHOUSE_ID, data["landlords"])
+            insert_tenants(client, WAREHOUSE_ID, data["tenants"])
+            insert_leases(client, WAREHOUSE_ID, data["leases"])
+            
+            print("✅ All data inserted successfully")
+            
+        except ImportError as e:
+            error_msg = f"Failed to import data generation modules: {str(e)}"
+            print(f"❌ {error_msg}")
+            return jsonify({
+                'error': error_msg,
+                'suggestion': 'Ensure DataGeneration folder and dependencies are accessible'
+            }), 500
+        except Exception as e:
+            error_msg = f"Failed to generate data: {str(e)}"
+            print(f"❌ {error_msg}")
+            traceback.print_exc()
+            return jsonify({
+                'error': error_msg,
+                'traceback': traceback.format_exc()
+            }), 500
+        
+        # Step 4: Verify counts
+        print("\n🔍 Verifying data...")
+        verify_query = f"""
+        SELECT 
+            'Silver Leases' as layer,
+            COUNT(*) as record_count
+        FROM {CATALOG}.{SCHEMA}.silver_leases
+        
+        UNION ALL
+        
+        SELECT 
+            'Tenants' as layer,
+            COUNT(*) as record_count
+        FROM {CATALOG}.{SCHEMA}.tenants
+        
+        UNION ALL
+        
+        SELECT 
+            'Landlords' as layer,
+            COUNT(*) as record_count
+        FROM {CATALOG}.{SCHEMA}.landlords
+        """
+        
+        statement = client.statement_execution.execute_statement(
+            warehouse_id=WAREHOUSE_ID,
+            statement=verify_query,
+            wait_timeout="50s"
+        )
+        
+        counts = {}
+        if statement.status.state == StatementState.SUCCEEDED and statement.result and statement.result.data_array:
+            for row in statement.result.data_array:
+                counts[row[0]] = row[1]
+        
+        print("\n✅ Data reset complete!")
+        print(f"   Silver Leases: {counts.get('Silver Leases', 0)} records")
+        print(f"   Tenants: {counts.get('Tenants', 0)} records")
+        print(f"   Landlords: {counts.get('Landlords', 0)} records")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully generated {num_leases} enriched leases',
+            'counts': counts,
+            'leases_generated': counts.get('Silver Leases', 0),
+            'tenants_created': counts.get('Tenants', 0),
+            'landlords_created': counts.get('Landlords', 0)
+        })
+        
+    except Exception as e:
+        print(f"\n❌ Error during data reset: {str(e)}")
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 
 # ============================================================
