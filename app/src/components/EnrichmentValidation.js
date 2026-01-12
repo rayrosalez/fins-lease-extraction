@@ -34,42 +34,64 @@ const EnrichmentValidation = ({ leaseRecord, onComplete, onCancel }) => {
     
     try {
       const results = { landlord: null, tenant: null };
+      const errors = [];
       
       // Enrich landlord
       if (leaseRecord.landlord_name) {
-        const landlordRes = await fetch(`${API_BASE_URL}/enrich/landlord`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            landlord_name: leaseRecord.landlord_name,
-            landlord_address: leaseRecord.landlord_address || ''
-          })
-        });
-        const landlordData = await landlordRes.json();
-        if (landlordRes.ok) {
-          results.landlord = landlordData;
-          setLandlordData(landlordData);
-          setEditedLandlord(landlordData.enriched_data || {});
+        try {
+          const landlordRes = await fetch(`${API_BASE_URL}/enrich/landlord`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              landlord_name: leaseRecord.landlord_name,
+              landlord_address: leaseRecord.landlord_address || ''
+            })
+          });
+          const landlordJson = await landlordRes.json();
+          if (landlordRes.ok) {
+            results.landlord = landlordJson;
+            setLandlordData(landlordJson);
+            setEditedLandlord(landlordJson.enriched_data || {});
+          } else {
+            errors.push(`Landlord enrichment failed: ${landlordJson.error || 'Unknown error'}`);
+            console.error('Landlord enrichment error:', landlordJson);
+          }
+        } catch (landlordErr) {
+          errors.push(`Landlord enrichment error: ${landlordErr.message}`);
+          console.error('Landlord fetch error:', landlordErr);
         }
       }
       
       // Enrich tenant
       if (leaseRecord.tenant_name) {
-        const tenantRes = await fetch(`${API_BASE_URL}/enrich/tenant`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tenant_name: leaseRecord.tenant_name,
-            tenant_address: leaseRecord.tenant_address || '',
-            industry_sector: leaseRecord.industry_sector || ''
-          })
-        });
-        const tenantData = await tenantRes.json();
-        if (tenantRes.ok) {
-          results.tenant = tenantData;
-          setTenantData(tenantData);
-          setEditedTenant(tenantData.enriched_data || {});
+        try {
+          const tenantRes = await fetch(`${API_BASE_URL}/enrich/tenant`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tenant_name: leaseRecord.tenant_name,
+              tenant_address: leaseRecord.tenant_address || '',
+              industry_sector: leaseRecord.industry_sector || ''
+            })
+          });
+          const tenantJson = await tenantRes.json();
+          if (tenantRes.ok) {
+            results.tenant = tenantJson;
+            setTenantData(tenantJson);
+            setEditedTenant(tenantJson.enriched_data || {});
+          } else {
+            errors.push(`Tenant enrichment failed: ${tenantJson.error || 'Unknown error'}`);
+            console.error('Tenant enrichment error:', tenantJson);
+          }
+        } catch (tenantErr) {
+          errors.push(`Tenant enrichment error: ${tenantErr.message}`);
+          console.error('Tenant fetch error:', tenantErr);
         }
+      }
+      
+      // Show errors if any occurred
+      if (errors.length > 0) {
+        setError(errors.join('; '));
       }
       
       setEnrichmentStage('review');
@@ -620,6 +642,22 @@ const EnrichmentValidation = ({ leaseRecord, onComplete, onCancel }) => {
           <div className="enrichment-cards">
             {renderLandlordCard()}
             {renderTenantCard()}
+            {!landlordData && !tenantData && (
+              <div className="no-enrichment-data">
+                <FiAlertTriangle size={48} color="#F59E0B" />
+                <h3>No Enrichment Data Available</h3>
+                <p>
+                  The AI enrichment service could not retrieve financial information for the landlord or tenant.
+                  This may be because:
+                </p>
+                <ul>
+                  <li>The company names could not be found in public records</li>
+                  <li>The AI enrichment service is temporarily unavailable</li>
+                  <li>There was a network or authentication error</li>
+                </ul>
+                <p>You can try re-enriching or skip this step.</p>
+              </div>
+            )}
           </div>
 
           <div className="enrichment-actions">
@@ -631,7 +669,11 @@ const EnrichmentValidation = ({ leaseRecord, onComplete, onCancel }) => {
               <FiRefreshCw size={18} />
               Re-enrich
             </button>
-            <button className="save-btn" onClick={handleSaveEnrichment}>
+            <button 
+              className="save-btn" 
+              onClick={handleSaveEnrichment}
+              disabled={!landlordData && !tenantData}
+            >
               <FiSave size={18} />
               Save Profiles
             </button>
