@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity, FiBookOpen, FiX, FiFileText, FiThumbsUp, FiMinus, FiThumbsDown } from 'react-icons/fi';
+import { FiRefreshCw, FiHome, FiUser, FiTrendingUp, FiAlertTriangle, FiDollarSign, FiActivity, FiBookOpen, FiX, FiFileText, FiThumbsUp, FiMinus, FiThumbsDown, FiChevronUp, FiChevronDown, FiMapPin, FiBarChart2 } from 'react-icons/fi';
 import LeaseMap from './LeaseMap';
 import RiskAssessment from './RiskAssessment';
 import './Portfolio.css';
@@ -17,8 +17,11 @@ const Portfolio = () => {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('leases');
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [landlordSortConfig, setLandlordSortConfig] = useState({ key: null, direction: 'asc' });
+  const [tenantSortConfig, setTenantSortConfig] = useState({ key: null, direction: 'asc' });
 
   useEffect(() => {
     fetchPortfolioData();
@@ -55,16 +58,196 @@ const Portfolio = () => {
     }
   };
 
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedLeases = () => {
+    if (!sortConfig.key) return allLeases;
+
+    const sortedLeases = [...allLeases].sort((a, b) => {
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      // Handle date sorting for uploaded_at
+      if (sortConfig.key === 'uploaded_at') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+
+      // Handle string sorting
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+
+      if (aValue < bValue) {
+        return sortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortedLeases;
+  };
+
+  const renderSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <span className="sort-icon sort-icon-inactive">⇅</span>;
+    }
+    return sortConfig.direction === 'asc' ? (
+      <FiChevronUp className="sort-icon sort-icon-active" size={16} />
+    ) : (
+      <FiChevronDown className="sort-icon sort-icon-active" size={16} />
+    );
+  };
+
+  const handleLandlordSort = (key) => {
+    let direction = 'asc';
+    if (landlordSortConfig.key === key && landlordSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setLandlordSortConfig({ key, direction });
+  };
+
+  const getSortedLandlords = () => {
+    if (!landlordSortConfig.key) return landlords;
+
+    const sortedLandlords = [...landlords].sort((a, b) => {
+      let aValue = a[landlordSortConfig.key];
+      let bValue = b[landlordSortConfig.key];
+
+      // Handle date sorting for created_at
+      if (landlordSortConfig.key === 'created_at') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+
+      // Handle string sorting
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+
+      if (aValue < bValue) {
+        return landlordSortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return landlordSortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortedLandlords;
+  };
+
+  const renderLandlordSortIcon = (columnKey) => {
+    if (landlordSortConfig.key !== columnKey) {
+      return <span className="sort-icon sort-icon-inactive">⇅</span>;
+    }
+    return landlordSortConfig.direction === 'asc' ? (
+      <FiChevronUp className="sort-icon sort-icon-active" size={16} />
+    ) : (
+      <FiChevronDown className="sort-icon sort-icon-active" size={16} />
+    );
+  };
+
+  const handleTenantSort = (key) => {
+    let direction = 'asc';
+    if (tenantSortConfig.key === key && tenantSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setTenantSortConfig({ key, direction });
+  };
+
+  const getSortedTenants = () => {
+    if (!tenantSortConfig.key) return tenants;
+
+    const sortedTenants = [...tenants].sort((a, b) => {
+      let aValue = a[tenantSortConfig.key];
+      let bValue = b[tenantSortConfig.key];
+
+      // Handle date sorting for created_at
+      if (tenantSortConfig.key === 'created_at') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+
+      // Handle string sorting
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
+
+      if (aValue < bValue) {
+        return tenantSortConfig.direction === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return tenantSortConfig.direction === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    return sortedTenants;
+  };
+
+  const renderTenantSortIcon = (columnKey) => {
+    if (tenantSortConfig.key !== columnKey) {
+      return <span className="sort-icon sort-icon-inactive">⇅</span>;
+    }
+    return tenantSortConfig.direction === 'asc' ? (
+      <FiChevronUp className="sort-icon sort-icon-active" size={16} />
+    ) : (
+      <FiChevronDown className="sort-icon sort-icon-active" size={16} />
+    );
+  };
+
   const metrics = kpis ? [
-    { label: 'Total Leases', value: kpis.total_leases.toLocaleString(), change: `${kpis.expiring_12_months} expiring in 12mo` },
-    { label: 'Avg. Rent PSF', value: `$${kpis.avg_rent_psf.toFixed(2)}`, change: `${kpis.total_properties} properties` },
-    { label: 'Portfolio WALT', value: `${kpis.portfolio_walt.toFixed(1)} yrs`, change: `${kpis.markets_count} markets` },
-    { label: 'Avg. Risk Score', value: `${kpis.avg_risk_score.toFixed(1)}/100`, change: `${kpis.total_tenants} tenants` },
+    { label: 'Total Leases', value: kpis.total_leases.toLocaleString(), icon: FiFileText, subtext: `${kpis.expiring_12_months} expiring soon` },
+    { 
+      label: 'Landlords', 
+      value: landlords.length.toLocaleString(), 
+      icon: FiHome, 
+      subtext: landlords.length > 0 
+        ? `${(landlords.reduce((sum, l) => sum + (l.financial_health_score || 0), 0) / landlords.length).toFixed(1)} avg health`
+        : 'No data'
+    },
+    { 
+      label: 'Tenants', 
+      value: tenants.length.toLocaleString(), 
+      icon: FiUser, 
+      subtext: tenants.length > 0 
+        ? `${(tenants.reduce((sum, t) => sum + (t.financial_health_score || 0), 0) / tenants.length).toFixed(1)} avg health`
+        : 'No data'
+    },
+    { label: 'Avg. Rent PSF', value: `$${kpis.avg_rent_psf.toFixed(2)}`, icon: FiDollarSign, subtext: `${kpis.total_properties} properties` },
+    { label: 'Portfolio WALT', value: `${kpis.portfolio_walt.toFixed(1)} yrs`, icon: FiActivity, subtext: `${kpis.markets_count} markets` },
+    { label: 'Avg. Risk Score', value: `${kpis.avg_risk_score.toFixed(1)}/100`, icon: FiAlertTriangle, subtext: `${kpis.total_tenants} tenants` },
   ] : [
-    { label: 'Total Leases', value: '-', change: 'Loading...' },
-    { label: 'Avg. Rent PSF', value: '-', change: 'Loading...' },
-    { label: 'Portfolio WALT', value: '-', change: 'Loading...' },
-    { label: 'Avg. Risk Score', value: '-', change: 'Loading...' },
+    { label: 'Total Leases', value: '-', icon: FiFileText, subtext: 'Loading...' },
+    { label: 'Landlords', value: '-', icon: FiHome, subtext: 'Loading...' },
+    { label: 'Tenants', value: '-', icon: FiUser, subtext: 'Loading...' },
+    { label: 'Avg. Rent PSF', value: '-', icon: FiDollarSign, subtext: 'Loading...' },
+    { label: 'Portfolio WALT', value: '-', icon: FiActivity, subtext: 'Loading...' },
+    { label: 'Avg. Risk Score', value: '-', icon: FiAlertTriangle, subtext: 'Loading...' },
   ];
 
   if (loading) {
@@ -120,176 +303,81 @@ const Portfolio = () => {
           </button>
         </motion.div>
 
-        <div className="metrics-grid">
-          {metrics.map((metric, index) => (
             <motion.div 
-              key={index}
-              className="metric-card"
-              initial={{ opacity: 0, y: 30 }}
+          className="kpi-strip"
+          initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-            >
-              <div className="metric-label">{metric.label}</div>
-              <div className="metric-value">{metric.value}</div>
-              <div className="metric-change">{metric.change}</div>
-            </motion.div>
-          ))}
+          transition={{ duration: 0.5 }}
+        >
+          {metrics.map((metric, index) => {
+            const IconComponent = metric.icon;
+            // Determine icon type for styling
+            let iconType = 'default';
+            if (metric.label === 'Landlords') iconType = 'landlord';
+            else if (metric.label === 'Tenants') iconType = 'tenant';
+            
+            return (
+              <React.Fragment key={index}>
+                <div className="kpi-item">
+                  <div className={`kpi-icon kpi-icon-${iconType}`}>
+                    <IconComponent size={20} />
         </div>
+                  <div className="kpi-content">
+                    <div className="kpi-label">{metric.label}</div>
+                    <div className="kpi-value">{metric.value}</div>
+                    <div className="kpi-subtext">{metric.subtext}</div>
+                  </div>
+                </div>
+                {index < metrics.length - 1 && <div className="kpi-divider"></div>}
+              </React.Fragment>
+            );
+          })}
+        </motion.div>
 
         <div className="tab-navigation">
-          <button 
-            className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'risk' ? 'active' : ''}`}
-            onClick={() => setActiveTab('risk')}
-          >
-            Risk Assessment
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'map' ? 'active' : ''}`}
-            onClick={() => setActiveTab('map')}
-          >
-            Map View
-          </button>
           <button 
             className={`tab-button ${activeTab === 'leases' ? 'active' : ''}`}
             onClick={() => setActiveTab('leases')}
           >
-            All Leases ({allLeases.length})
+            <FiFileText size={16} style={{ marginRight: '0.5rem' }} />
+            All Leases
           </button>
           <button 
             className={`tab-button ${activeTab === 'markets' ? 'active' : ''}`}
             onClick={() => setActiveTab('markets')}
           >
+            <FiBarChart2 size={16} style={{ marginRight: '0.5rem' }} />
             Market Summary
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'map' ? 'active' : ''}`}
+            onClick={() => setActiveTab('map')}
+          >
+            <FiMapPin size={16} style={{ marginRight: '0.5rem' }} />
+            Map View
           </button>
           <button 
             className={`tab-button ${activeTab === 'landlords' ? 'active' : ''}`}
             onClick={() => setActiveTab('landlords')}
           >
             <FiHome size={16} style={{ marginRight: '0.5rem' }} />
-            Landlords ({landlords.length})
+            Landlords
           </button>
           <button 
             className={`tab-button ${activeTab === 'tenants' ? 'active' : ''}`}
             onClick={() => setActiveTab('tenants')}
           >
             <FiUser size={16} style={{ marginRight: '0.5rem' }} />
-            Tenants ({tenants.length})
+            Tenants
+          </button>
+          <button 
+            className={`tab-button tab-button-risk ${activeTab === 'risk' ? 'active' : ''}`}
+            onClick={() => setActiveTab('risk')}
+          >
+            <FiAlertTriangle size={16} style={{ marginRight: '0.5rem' }} />
+            Risk Assessment
           </button>
         </div>
-
-        {activeTab === 'overview' && (
-          <motion.div 
-            className="recent-section"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="section-title">Enrichment Overview</h2>
-            <p className="section-description">
-              Summary of enriched tenant and landlord data used to enhance risk assessment accuracy.
-            </p>
-            
-            {/* Enrichment Statistics */}
-            <div className="entity-metrics-grid">
-              <div className="entity-metric-card">
-                <div className="entity-metric-icon tenant-icon">
-                  <FiUser size={24} />
-                </div>
-                <div className="entity-metric-content">
-                  <div className="entity-metric-value">{tenants.length}</div>
-                  <div className="entity-metric-label">Enriched Tenants</div>
-                </div>
-              </div>
-              
-              <div className="entity-metric-card">
-                <div className="entity-metric-icon landlord-icon">
-                  <FiHome size={24} />
-                </div>
-                <div className="entity-metric-content">
-                  <div className="entity-metric-value">{landlords.length}</div>
-                  <div className="entity-metric-label">Enriched Landlords</div>
-                </div>
-              </div>
-              
-              <div className="entity-metric-card">
-                <div className="entity-metric-icon health-icon">
-                  <FiActivity size={24} />
-                </div>
-                <div className="entity-metric-content">
-                  <div className="entity-metric-value">
-                    {tenants.length > 0 
-                      ? (tenants.reduce((sum, t) => sum + (t.financial_health_score || 0), 0) / tenants.length).toFixed(1)
-                      : '-'}
-                  </div>
-                  <div className="entity-metric-label">Avg Tenant Health</div>
-                </div>
-              </div>
-              
-              <div className="entity-metric-card">
-                <div className="entity-metric-icon health-icon">
-                  <FiActivity size={24} />
-                </div>
-                <div className="entity-metric-content">
-                  <div className="entity-metric-value">
-                    {landlords.length > 0 
-                      ? (landlords.reduce((sum, l) => sum + (l.financial_health_score || 0), 0) / landlords.length).toFixed(1)
-                      : '-'}
-                  </div>
-                  <div className="entity-metric-label">Avg Landlord Health</div>
-                </div>
-              </div>
-            </div>
-
-            <h2 className="section-title" style={{ marginTop: '2rem' }}>Recent Extractions</h2>
-            <div className="extractions-list">
-              {recentExtractions.slice(0, 5).map((extraction) => (
-                <div key={extraction.id} className="extraction-item">
-                  <div className="extraction-icon">
-                    <FiFileText size={28} />
-                  </div>
-                  <div className="extraction-info">
-                    <div className="extraction-name">{extraction.name}</div>
-                    <div className="extraction-meta">
-                      <span className={`status ${extraction.status.toLowerCase()}`}>
-                        {extraction.status}
-                      </span>
-                      <span className="accuracy">{extraction.accuracy}</span>
-                      <span className="date">{String(extraction.date).substring(0, 10)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'risk' && (
-          <motion.div 
-            className="risk-section"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <RiskAssessment />
-          </motion.div>
-        )}
-
-        {activeTab === 'map' && (
-          <motion.div 
-            className="map-section"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <LeaseMap locations={locationData} />
-          </motion.div>
-        )}
 
         {activeTab === 'leases' && (
           <motion.div 
@@ -303,20 +391,81 @@ const Portfolio = () => {
               <table className="leases-table">
                 <thead>
                   <tr>
-                    <th>Tenant</th>
-                    <th>Property</th>
-                    <th>Market</th>
-                    <th>Commencement</th>
-                    <th>Expiration</th>
-                    <th>Rent PSF</th>
-                    <th>Square Feet</th>
-                    <th>Years Left</th>
-                    <th>Status</th>
+                    <th className="sortable-header" onClick={() => handleSort('uploaded_at')}>
+                      <div className="header-content">
+                        Uploaded
+                        {renderSortIcon('uploaded_at')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('tenant_name')}>
+                      <div className="header-content">
+                        Tenant
+                        {renderSortIcon('tenant_name')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('property_name')}>
+                      <div className="header-content">
+                        Property
+                        {renderSortIcon('property_name')}
+              </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('market')}>
+                      <div className="header-content">
+                        Market
+                        {renderSortIcon('market')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('commencement_date')}>
+                      <div className="header-content">
+                        Commencement
+                        {renderSortIcon('commencement_date')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('expiration_date')}>
+                      <div className="header-content">
+                        Expiration
+                        {renderSortIcon('expiration_date')}
+              </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('base_rent_psf')}>
+                      <div className="header-content">
+                        Rent PSF
+                        {renderSortIcon('base_rent_psf')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('square_feet')}>
+                      <div className="header-content">
+                        Square Feet
+                        {renderSortIcon('square_feet')}
+                  </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('years_remaining')}>
+                      <div className="header-content">
+                        Years Left
+                        {renderSortIcon('years_remaining')}
+                </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleSort('status')}>
+                      <div className="header-content">
+                        Status
+                        {renderSortIcon('status')}
+              </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {allLeases.map((lease) => (
+                  {getSortedLeases().map((lease) => (
                     <tr key={lease.id}>
+                      <td className="uploaded-cell">
+                        {lease.uploaded_at ? (
+                          <div className="uploaded-date">
+                            <div>{new Date(lease.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div className="uploaded-time">{new Date(lease.uploaded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        ) : (
+                          <span className="no-date">-</span>
+                        )}
+                      </td>
                       <td>{lease.tenant_name}</td>
                       <td>{lease.property_name}</td>
                       <td>{lease.market}</td>
@@ -500,21 +649,87 @@ const Portfolio = () => {
               <table className="entity-table landlord-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Ticker</th>
-                    <th>Market Cap</th>
-                    <th>Annual Revenue</th>
-                    <th>Credit Rating</th>
-                    <th>Properties</th>
-                    <th>Health Score</th>
-                    <th>Risk</th>
-                    <th>Sentiment</th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('created_at')}>
+                      <div className="header-content">
+                        Uploaded
+                        {renderLandlordSortIcon('created_at')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('landlord_name')}>
+                      <div className="header-content">
+                        Name
+                        {renderLandlordSortIcon('landlord_name')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('company_type')}>
+                      <div className="header-content">
+                        Type
+                        {renderLandlordSortIcon('company_type')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('stock_ticker')}>
+                      <div className="header-content">
+                        Ticker
+                        {renderLandlordSortIcon('stock_ticker')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('market_cap')}>
+                      <div className="header-content">
+                        Market Cap
+                        {renderLandlordSortIcon('market_cap')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('annual_revenue')}>
+                      <div className="header-content">
+                        Annual Revenue
+                        {renderLandlordSortIcon('annual_revenue')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('credit_rating')}>
+                      <div className="header-content">
+                        Credit Rating
+                        {renderLandlordSortIcon('credit_rating')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('total_properties')}>
+                      <div className="header-content">
+                        Properties
+                        {renderLandlordSortIcon('total_properties')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('financial_health_score')}>
+                      <div className="header-content">
+                        Health Score
+                        {renderLandlordSortIcon('financial_health_score')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('bankruptcy_risk')}>
+                      <div className="header-content">
+                        Risk
+                        {renderLandlordSortIcon('bankruptcy_risk')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleLandlordSort('recent_news_sentiment')}>
+                      <div className="header-content">
+                        Sentiment
+                        {renderLandlordSortIcon('recent_news_sentiment')}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {landlords.map((landlord) => (
+                  {getSortedLandlords().map((landlord) => (
                     <tr key={landlord.landlord_id}>
+                      <td className="uploaded-cell">
+                        {landlord.created_at ? (
+                          <div className="uploaded-date">
+                            <div>{new Date(landlord.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div className="uploaded-time">{new Date(landlord.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        ) : (
+                          <span className="no-date">-</span>
+                        )}
+                      </td>
                       <td className="name-cell">{landlord.landlord_name}</td>
                       <td>{landlord.company_type || '-'}</td>
                       <td className="ticker-cell">{landlord.stock_ticker || '-'}</td>
@@ -683,21 +898,87 @@ const Portfolio = () => {
               <table className="entity-table tenant-table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Industry</th>
-                    <th>Type</th>
-                    <th>Ticker</th>
-                    <th>Annual Revenue</th>
-                    <th>Employees</th>
-                    <th>Credit Rating</th>
-                    <th>Health Score</th>
-                    <th>Risk</th>
-                    <th>Growth</th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('created_at')}>
+                      <div className="header-content">
+                        Uploaded
+                        {renderTenantSortIcon('created_at')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('tenant_name')}>
+                      <div className="header-content">
+                        Name
+                        {renderTenantSortIcon('tenant_name')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('industry_sector')}>
+                      <div className="header-content">
+                        Industry
+                        {renderTenantSortIcon('industry_sector')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('company_type')}>
+                      <div className="header-content">
+                        Type
+                        {renderTenantSortIcon('company_type')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('stock_ticker')}>
+                      <div className="header-content">
+                        Ticker
+                        {renderTenantSortIcon('stock_ticker')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('annual_revenue')}>
+                      <div className="header-content">
+                        Annual Revenue
+                        {renderTenantSortIcon('annual_revenue')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('employee_count')}>
+                      <div className="header-content">
+                        Employees
+                        {renderTenantSortIcon('employee_count')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('credit_rating')}>
+                      <div className="header-content">
+                        Credit Rating
+                        {renderTenantSortIcon('credit_rating')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('financial_health_score')}>
+                      <div className="header-content">
+                        Health Score
+                        {renderTenantSortIcon('financial_health_score')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('bankruptcy_risk')}>
+                      <div className="header-content">
+                        Risk
+                        {renderTenantSortIcon('bankruptcy_risk')}
+                      </div>
+                    </th>
+                    <th className="sortable-header" onClick={() => handleTenantSort('revenue_growth_pct')}>
+                      <div className="header-content">
+                        Growth
+                        {renderTenantSortIcon('revenue_growth_pct')}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tenants.map((tenant) => (
+                  {getSortedTenants().map((tenant) => (
                     <tr key={tenant.tenant_id}>
+                      <td className="uploaded-cell">
+                        {tenant.created_at ? (
+                          <div className="uploaded-date">
+                            <div>{new Date(tenant.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                            <div className="uploaded-time">{new Date(tenant.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                        ) : (
+                          <span className="no-date">-</span>
+                        )}
+                      </td>
                       <td className="name-cell">{tenant.tenant_name}</td>
                       <td>{tenant.industry_sector || '-'}</td>
                       <td>{tenant.company_type || '-'}</td>
@@ -732,6 +1013,28 @@ const Portfolio = () => {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'risk' && (
+          <motion.div 
+            className="risk-section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <RiskAssessment />
+          </motion.div>
+        )}
+
+        {activeTab === 'map' && (
+          <motion.div 
+            className="map-section"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <LeaseMap locations={locationData} />
           </motion.div>
         )}
       </div>
