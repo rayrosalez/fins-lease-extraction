@@ -233,22 +233,48 @@ const Forecasting = () => {
       {currentPortfolio && (
         <div className="current-portfolio-summary">
           <h3>Current Portfolio Snapshot</h3>
-          <div className="summary-grid">
-            <div className="summary-item">
-              <span className="summary-label">Total Leases</span>
-              <span className="summary-value">{currentPortfolio.total_leases}</span>
+          <div className="forecast-kpi-strip">
+            <div className="forecast-kpi-item">
+              <div className="forecast-kpi-icon">
+                <FiUsers size={20} />
+              </div>
+              <div className="forecast-kpi-content">
+                <div className="forecast-kpi-label">Total Leases</div>
+                <div className="forecast-kpi-value">{currentPortfolio.total_leases}</div>
+              </div>
             </div>
-            <div className="summary-item">
-              <span className="summary-label">Avg Risk Score</span>
-              <span className="summary-value">{currentPortfolio.avg_risk_score?.toFixed(1)}/100</span>
+            <div className="forecast-kpi-divider"></div>
+            
+            <div className="forecast-kpi-item">
+              <div className="forecast-kpi-icon">
+                <FiAlertCircle size={20} />
+              </div>
+              <div className="forecast-kpi-content">
+                <div className="forecast-kpi-label">Avg Risk Score</div>
+                <div className="forecast-kpi-value">{currentPortfolio.avg_risk_score?.toFixed(1)}/100</div>
+              </div>
             </div>
-            <div className="summary-item">
-              <span className="summary-label">Portfolio WALT</span>
-              <span className="summary-value">{currentPortfolio.portfolio_walt?.toFixed(1)} yrs</span>
+            <div className="forecast-kpi-divider"></div>
+            
+            <div className="forecast-kpi-item">
+              <div className="forecast-kpi-icon">
+                <FiActivity size={20} />
+              </div>
+              <div className="forecast-kpi-content">
+                <div className="forecast-kpi-label">Portfolio WALT</div>
+                <div className="forecast-kpi-value">{currentPortfolio.portfolio_walt?.toFixed(1)} yrs</div>
+              </div>
             </div>
-            <div className="summary-item">
-              <span className="summary-label">Avg Rent PSF</span>
-              <span className="summary-value">${currentPortfolio.avg_rent_psf?.toFixed(2)}</span>
+            <div className="forecast-kpi-divider"></div>
+            
+            <div className="forecast-kpi-item">
+              <div className="forecast-kpi-icon">
+                <FiDollarSign size={20} />
+              </div>
+              <div className="forecast-kpi-content">
+                <div className="forecast-kpi-label">Avg Rent PSF</div>
+                <div className="forecast-kpi-value">${currentPortfolio.avg_rent_psf?.toFixed(2)}</div>
+              </div>
             </div>
           </div>
         </div>

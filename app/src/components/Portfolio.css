@@ -38,6 +38,9 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .refresh-button:hover {
@@ -116,9 +119,12 @@
 
 .tab-navigation {
   display: flex;
-  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
   margin-bottom: 2rem;
   border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  padding: 0 2rem;
 }
 
 .tab-button {
@@ -144,6 +150,134 @@
   border-bottom-color: #FF3621;
 }
 
+/* Risk Assessment Tab - Special Styling */
+.tab-button-risk {
+  background: linear-gradient(135deg, rgba(109, 40, 217, 0.1), rgba(91, 33, 182, 0.1));
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 8px 8px 0 0;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-button-risk::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #7C3AED, #A855F7, #7C3AED);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.tab-button-risk:hover {
+  background: linear-gradient(135deg, rgba(109, 40, 217, 0.15), rgba(91, 33, 182, 0.15));
+  border-color: rgba(124, 58, 237, 0.5);
+  color: #A855F7;
+}
+
+.tab-button-risk.active {
+  background: linear-gradient(135deg, rgba(109, 40, 217, 0.2), rgba(91, 33, 182, 0.2));
+  border-color: #7C3AED;
+  border-bottom-color: #7C3AED;
+  color: #A855F7;
+  font-weight: 700;
+  box-shadow: 0 -2px 12px rgba(124, 58, 237, 0.4);
+}
+
+/* KPI Horizontal Strip */
+.kpi-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem 2rem;
+  margin-bottom: 2rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 54, 33, 0.12);
+  color: #FF3621;
+  flex-shrink: 0;
+}
+
+.kpi-icon-landlord {
+  background: rgba(255, 54, 33, 0.12);
+  color: #FF3621;
+}
+
+.kpi-icon-tenant {
+  background: rgba(139, 69, 19, 0.12);
+  color: #D4915E;
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.kpi-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #FF6B4D;
+  line-height: 1.1;
+}
+
+.kpi-subtext {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 500;
+}
+
+.kpi-divider {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0)
+  );
+  flex-shrink: 0;
+  margin: 0 1.5rem;
+}
+
+/* Old Metrics Grid - Deprecated */
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -452,6 +586,49 @@
   border-bottom: 2px solid rgba(255, 54, 33, 0.3);
 }
 
+.leases-table th.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.leases-table th.sortable-header:hover {
+  background: rgba(255, 54, 33, 0.15);
+  color: #FF3621;
+}
+
+.leases-table th.sortable-header:active {
+  background: rgba(255, 54, 33, 0.2);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.sort-icon {
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.sort-icon-inactive {
+  opacity: 0.3;
+  font-size: 0.9rem;
+}
+
+.sortable-header:hover .sort-icon-inactive {
+  opacity: 0.6;
+}
+
+.sort-icon-active {
+  color: #FF3621;
+  opacity: 1;
+}
+
 .leases-table td {
   padding: 1rem;
   color: rgba(255, 255, 255, 0.8);
@@ -658,6 +835,26 @@
 
   .dashboard-subtitle {
     font-size: 1rem;
+  }
+
+  /* KPI Strip Responsive */
+  .kpi-strip {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .kpi-item {
+    width: 100%;
+    padding: 0.75rem;
+  }
+
+  .kpi-divider {
+    display: none;
+  }
+
+  .kpi-value {
+    font-size: 1.35rem;
   }
 
   .metrics-grid {
@@ -1173,72 +1370,117 @@
   }
 }
 
-/* Header Actions */
-.header-actions {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
+/* Uploaded Date Cell Styling */
+.uploaded-cell {
+  min-width: 120px;
+  font-weight: 500;
 }
 
-.glossary-toggle-button {
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  color: #3b82f6;
-  padding: 0.75rem 1.5rem;
-  border-radius: 10px;
+.uploaded-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.uploaded-date > div:first-child {
+  color: rgba(255, 255, 255, 0.9);
   font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.uploaded-time {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+.no-date {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+
+/* Floating Glossary Button - Fixed Position */
+.floating-glossary-button {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FF3621, #e62f1d);
+  border: none;
+  color: white;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Inter', sans-serif;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(255, 54, 33, 0.4);
+  transition: all 0.3s ease;
+  z-index: 900;
+  font-family: 'Inter', sans-serif;
 }
 
-.glossary-toggle-button:hover {
-  background: rgba(59, 130, 246, 0.3);
-  border-color: rgba(59, 130, 246, 0.6);
-  transform: translateY(-2px);
+.floating-glossary-button:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 12px 32px rgba(255, 54, 33, 0.6);
+  background: linear-gradient(135deg, #e62f1d, #FF3621);
 }
 
-/* Glossary Sidebar */
-.glossary-backdrop {
+.floating-glossary-button:active {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Glossary Modal - Centered on Screen */
+.glossary-modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   z-index: 999;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
-.glossary-sidebar {
+.glossary-modal-container {
   position: fixed;
   top: 0;
+  left: 0;
   right: 0;
-  width: 480px;
-  height: 100vh;
-  background: linear-gradient(135deg, rgba(26, 27, 35, 0.98) 0%, rgba(20, 21, 28, 0.98) 100%);
-  backdrop-filter: blur(20px);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 1000;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+  bottom: 0;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+  pointer-events: none;
 }
 
-.glossary-sidebar-header {
-  padding: 2rem;
+.glossary-modal {
+  background: linear-gradient(135deg, rgba(26, 27, 35, 0.98) 0%, rgba(20, 21, 28, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  max-width: 900px;
+  max-height: 85vh;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.glossary-modal-header {
+  padding: 2rem 2rem 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: rgba(255, 255, 255, 0.02);
+  border-radius: 20px 20px 0 0;
 }
 
-.glossary-sidebar-title {
-  font-size: 1.5rem;
+.glossary-modal-title {
+  font-size: 1.75rem;
   font-weight: 700;
   color: #ffffff;
   display: flex;
@@ -1247,7 +1489,7 @@
   margin: 0;
 }
 
-.glossary-close-button {
+.glossary-modal-close {
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.6);
@@ -1260,36 +1502,66 @@
   justify-content: center;
 }
 
-.glossary-close-button:hover {
+.glossary-modal-close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
 }
 
-.glossary-sidebar-content {
+.glossary-modal-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
-.glossary-sidebar-content::-webkit-scrollbar {
-  width: 8px;
+.glossary-modal-content::-webkit-scrollbar {
+  width: 10px;
 }
 
-.glossary-sidebar-content::-webkit-scrollbar-track {
+.glossary-modal-content::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
-.glossary-sidebar-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+.glossary-modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 54, 33, 0.4);
+  border-radius: 5px;
 }
 
-.glossary-sidebar-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+.glossary-modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 54, 33, 0.6);
+}
+
+/* Responsive for Floating Button and Modal */
+@media (max-width: 768px) {
+  .floating-glossary-button {
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 56px;
+    height: 56px;
+  }
+
+  .glossary-modal-container {
+    padding: 1rem;
+  }
+
+  .glossary-modal {
+    max-height: 90vh;
+  }
+
+  .glossary-modal-header {
+    padding: 1.5rem;
+  }
+
+  .glossary-modal-title {
+    font-size: 1.5rem;
+  }
+
+  .glossary-modal-content {
+    padding: 1.5rem;
+  }
 }
 
 /* Glossary Card Vertical */
@@ -1389,19 +1661,24 @@
 
 /* Responsive for Glossary */
 @media (max-width: 768px) {
-  .glossary-sidebar {
-    width: 100vw;
-    max-width: 100%;
+  .glossary-modal-container {
+    padding: 0.5rem;
   }
 
-  .header-actions {
-    flex-direction: column;
-    gap: 0.5rem;
+  .glossary-modal {
+    max-height: 95vh;
+    border-radius: 16px;
   }
 
-  .glossary-toggle-button,
-  .refresh-button {
-    width: 100%;
-    justify-content: center;
+  .glossary-modal-header {
+    padding: 1.25rem;
+  }
+
+  .glossary-modal-title {
+    font-size: 1.35rem;
+  }
+
+  .glossary-modal-content {
+    padding: 1rem;
   }
 }

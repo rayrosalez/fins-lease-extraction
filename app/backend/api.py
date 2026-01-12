@@ -463,7 +463,8 @@ def get_all_leases():
         estimated_annual_rent,
         annual_escalation_pct,
         validation_status,
-        DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25 as years_remaining
+        DATEDIFF(lease_end_date, CURRENT_DATE()) / 365.25 as years_remaining,
+        uploaded_at
     FROM {CATALOG}.{SCHEMA}.silver_leases
     WHERE tenant_name IS NOT NULL
     ORDER BY lease_end_date ASC
@@ -489,7 +490,8 @@ def get_all_leases():
             'annual_rent': float(row[10]) if row[10] else 0,
             'escalation_pct': float(row[11]) if row[11] else 0,
             'status': row[12],
-            'years_remaining': float(row[13]) if row[13] else 0
+            'years_remaining': float(row[13]) if row[13] else 0,
+            'uploaded_at': row[14] if row[14] else None
         })
     
     return jsonify(leases)
