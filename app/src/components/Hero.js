@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi';
 import './Hero.css';
 import ResetModal from './ResetModal';
+import NeuralBackground from './NeuralBackground';
 
 const Hero = ({ onNavigate }) => {
   const [activeModal, setActiveModal] = useState(null);
@@ -88,8 +89,11 @@ const Hero = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="hero-new">
-      {/* Subtle Demo Reset Button (top right corner) */}
+    <>
+      {/* Subtle Neural Network Background - fades as you scroll */}
+      <NeuralBackground />
+      
+      {/* Subtle Demo Reset Button (top right corner) - OUTSIDE hero-new for proper layering */}
       <div style={{
         position: 'fixed',
         top: '20px',
@@ -138,8 +142,9 @@ const Hero = ({ onNavigate }) => {
         isOpen={showResetModal} 
         onClose={() => setShowResetModal(false)} 
       />
-
-      {/* Main Hero Section */}
+      
+      <div className="hero-new">
+        {/* Main Hero Section */}
       <motion.div 
         className="hero-header"
         initial={{ opacity: 0, y: 30 }}
@@ -750,6 +755,7 @@ const Hero = ({ onNavigate }) => {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 };
 
