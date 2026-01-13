@@ -14,8 +14,9 @@ function App() {
       <nav className="navbar">
         <div className="nav-container">
           <div className="logo">
-            <span className="logo-text">FINS</span>
-            <span className="logo-subtext">Lease Extraction</span>
+            <span className="logo-text">
+              <span className="logo-main">LeaseMiner</span>
+            </span>
           </div>
           <div className="nav-links">
             <button 
