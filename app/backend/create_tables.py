@@ -14,6 +14,7 @@ WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID')
 CATALOG = os.getenv('DATABRICKS_CATALOG', 'fins_team_3')
 SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
 
+
 def execute_sql(client, statement, description):
     """Execute a SQL statement using Databricks SDK"""
     print(f"\n{'='*60}")
