@@ -2669,10 +2669,10 @@ def reset_demo_data():
         # Step 3: Generate enriched synthetic data directly in silver layer
         print(f"\n📊 Generating {num_leases} enriched leases...")
         
-        # Import generation functions from DataGeneration folder
+        # Import generation functions from app/data_generation folder
         from pathlib import Path
         import sys
-        data_gen_path = Path(__file__).parent.parent.parent / 'DataGeneration'
+        data_gen_path = Path(__file__).parent.parent / 'data_generation'
         sys.path.insert(0, str(data_gen_path))
         
         try:
@@ -2707,7 +2707,7 @@ def reset_demo_data():
             print(f"❌ {error_msg}")
             return jsonify({
                 'error': error_msg,
-                'suggestion': 'Ensure DataGeneration folder and dependencies are accessible'
+                'suggestion': 'Ensure app/data_generation folder and dependencies are accessible'
             }), 500
         except Exception as e:
             error_msg = f"Failed to generate data: {str(e)}"

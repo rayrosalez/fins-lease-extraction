@@ -17,6 +17,7 @@ function App() {
             <span className="logo-text">
               <span className="logo-main">LeaseMiner</span>
             </span>
+            <span className="logo-subtitle">Built by Fins DSAs</span>
           </div>
           <div className="nav-links">
             <button 
