@@ -26,15 +26,73 @@
 
 .logo {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
+  position: relative;
 }
 
 .logo-text {
+  font-family: 'Orbitron', 'Rajdhani', monospace;
   font-size: 1.8rem;
   font-weight: 800;
   color: #FF3621;
-  letter-spacing: -0.5px;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  text-transform: uppercase;
+  filter: drop-shadow(0 0 5px rgba(255, 54, 33, 0.3));
+}
+
+.logo-main {
+  background: linear-gradient(135deg, #FF3621 0%, #FF6B5A 50%, #FF3621 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+  position: relative;
+  text-shadow: 0 0 8px rgba(255, 54, 33, 0.4);
+  font-weight: 900;
+}
+
+
+
+
+/* Animations */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+    filter: brightness(1) drop-shadow(0 0 4px rgba(255, 54, 33, 0.5));
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 54, 33, 0.7));
+  }
+}
+
+
+
+
+/* Hover effect */
+.logo:hover .logo-main {
+  animation: gradientShift 1s ease infinite, textGlitch 0.3s ease;
+}
+
+
+@keyframes textGlitch {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-2px, 2px);
+  }
+  50% {
+    transform: translate(2px, -2px);
+  }
+  75% {
+    transform: translate(-2px, -2px);
+  }
 }
 
 .logo-subtext {

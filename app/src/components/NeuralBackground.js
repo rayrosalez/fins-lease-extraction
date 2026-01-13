@@ -30,14 +30,29 @@ const NeuralBackground = () => {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Particle class - stationary with pulsating effect
+    // Particle class - with subtle floating movement
     class Particle {
       constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+        this.baseX = Math.random() * canvas.width;
+        this.baseY = Math.random() * canvas.height;
+        this.x = this.baseX;
+        this.y = this.baseY;
         this.baseRadius = Math.random() * 2 + 1.5; // Larger base to prevent negative radius
         this.pulseSpeed = Math.random() * 0.02 + 0.01;
         this.pulseOffset = Math.random() * Math.PI * 2;
+        
+        // Subtle floating movement properties
+        this.floatSpeedX = Math.random() * 0.001 + 0.0005; // Slow but visible
+        this.floatSpeedY = Math.random() * 0.001 + 0.0005;
+        this.floatOffsetX = Math.random() * Math.PI * 2;
+        this.floatOffsetY = Math.random() * Math.PI * 2;
+        this.floatRange = 30; // Movement range in pixels
+      }
+
+      update(time) {
+        // Subtle floating animation - moves in a slow sine wave pattern
+        this.x = this.baseX + Math.sin(time * this.floatSpeedX + this.floatOffsetX) * this.floatRange;
+        this.y = this.baseY + Math.cos(time * this.floatSpeedY + this.floatOffsetY) * this.floatRange;
       }
 
       draw(time) {
@@ -104,6 +119,11 @@ const NeuralBackground = () => {
     const animate = () => {
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update particle positions
+      particles.forEach(particle => {
+        particle.update(time);
+      });
 
       // Draw connections first (behind particles)
       drawConnections(time);
