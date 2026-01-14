@@ -2,6 +2,32 @@
 
 AI-powered commercial lease document extraction and portfolio risk analytics platform built with Databricks, React, and Flask.
 
+---
+
+## 🌿 Branch Strategy
+
+This repository has two main branches for different use cases:
+
+| Branch | Purpose | Use Case |
+|--------|---------|----------|
+| **`main`** | Local/Manual Development | Run the app locally, make code changes, test features manually |
+| **`deploy-ready`** | Bundle Deployment | Deploy to Databricks using Asset Bundles (`databricks bundle deploy`) |
+
+**Choose your branch:**
+- If you want to **run locally** or **develop new features** → use `main`
+- If you want to **deploy to Databricks** → use `deploy-ready`
+
+```bash
+# For local development
+git checkout main
+
+# For Databricks deployment
+git checkout deploy-ready
+```
+
+---
+
+
 ## 🎯 Overview
 
 This system automates the extraction of critical data from commercial real estate lease agreements using AI agents, stores the data in a structured format using Databricks Unity Catalog, and provides interactive analytics and risk assessment dashboards.
