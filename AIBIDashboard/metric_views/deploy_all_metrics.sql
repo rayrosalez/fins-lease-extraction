@@ -29,7 +29,7 @@ CREATE OR REPLACE VIEW portfolio_lease_metrics
   COMMENT 'Portfolio-wide lease metrics for CRE analytics.'
   AS $$
     version: 1.1
-    source: fins_team_3.lease_management.silver_leases
+    source: ${catalog}.${schema}.silver_leases
     filter: tenant_name IS NOT NULL
     dimensions:
       - name: market
@@ -44,13 +44,13 @@ CREATE OR REPLACE VIEW portfolio_lease_metrics
       - name: total_leases
         expr: COUNT(1)
       - name: total_sqft
-        expr: SUM(square_footage)
+        expr: CAST(SUM(square_footage) AS DOUBLE)
       - name: total_annual_rent
-        expr: SUM(estimated_annual_rent)
+        expr: CAST(SUM(estimated_annual_rent) AS DOUBLE)
       - name: avg_rent_psf
-        expr: AVG(base_rent_psf)
+        expr: CAST(AVG(base_rent_psf) AS DOUBLE)
       - name: avg_years_remaining
-        expr: AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25)
+        expr: CAST(AVG(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25) AS DOUBLE)
       - name: expiring_90_days
         expr: COUNT(1) FILTER (WHERE DATEDIFF(lease_end_date, CURRENT_DATE()) BETWEEN 0 AND 90)
       - name: expiring_180_days
@@ -85,7 +85,7 @@ CREATE OR REPLACE VIEW risk_assessment_metrics
   COMMENT 'Lease risk assessment metrics with multi-factor scoring.'
   AS $$
     version: 1.1
-    source: fins_team_3.lease_management.gold_lease_risk_scores
+    source: ${catalog}.${schema}.gold_lease_risk_scores
     filter: total_risk_score IS NOT NULL
     dimensions:
       - name: industry_sector
@@ -98,25 +98,25 @@ CREATE OR REPLACE VIEW risk_assessment_metrics
       - name: total_leases
         expr: COUNT(1)
       - name: avg_risk_score
-        expr: AVG(total_risk_score)
+        expr: CAST(AVG(total_risk_score) AS DOUBLE)
       - name: total_rent_at_risk
-        expr: SUM(estimated_annual_rent)
+        expr: CAST(SUM(estimated_annual_rent) AS DOUBLE)
       - name: high_risk_rent
-        expr: SUM(estimated_annual_rent) FILTER (WHERE total_risk_score > 70)
+        expr: CAST(SUM(estimated_annual_rent) FILTER (WHERE total_risk_score > 70) AS DOUBLE)
       - name: critical_lease_count
         expr: COUNT(1) FILTER (WHERE lease_status = 'CRITICAL')
       - name: high_priority_count
         expr: COUNT(1) FILTER (WHERE lease_status = 'HIGH_PRIORITY')
       - name: avg_rollover_risk
-        expr: AVG(rollover_score)
+        expr: CAST(AVG(rollover_score) AS DOUBLE)
       - name: avg_escalation_risk
-        expr: AVG(escalation_risk_score)
+        expr: CAST(AVG(escalation_risk_score) AS DOUBLE)
       - name: avg_concentration_risk
-        expr: AVG(concentration_risk_score)
+        expr: CAST(AVG(concentration_risk_score) AS DOUBLE)
       - name: avg_industry_risk
-        expr: AVG(sector_risk_base)
+        expr: CAST(AVG(sector_risk_base) AS DOUBLE)
       - name: avg_days_to_expiry
-        expr: AVG(days_to_expiry)
+        expr: CAST(AVG(days_to_expiry) AS DOUBLE)
   $$;
 
 -- ============================================================================
@@ -147,7 +147,7 @@ CREATE OR REPLACE VIEW landlord_metrics
   COMMENT 'Landlord financial and risk metrics.'
   AS $$
     version: 1.1
-    source: fins_team_3.lease_management.landlords
+    source: ${catalog}.${schema}.landlords
     dimensions:
       - name: company_type
         expr: COALESCE(company_type, 'Unknown')
@@ -161,17 +161,17 @@ CREATE OR REPLACE VIEW landlord_metrics
       - name: total_landlords
         expr: COUNT(1)
       - name: total_revenue
-        expr: SUM(annual_revenue)
+        expr: CAST(SUM(annual_revenue) AS DOUBLE)
       - name: total_assets
-        expr: SUM(total_assets)
+        expr: CAST(SUM(total_assets) AS DOUBLE)
       - name: avg_health_score
-        expr: AVG(financial_health_score)
+        expr: CAST(AVG(financial_health_score) AS DOUBLE)
       - name: total_properties
-        expr: SUM(total_properties)
+        expr: CAST(SUM(total_properties) AS DOUBLE)
       - name: avg_market_cap
-        expr: AVG(market_cap)
+        expr: CAST(AVG(market_cap) AS DOUBLE)
       - name: avg_debt_to_equity
-        expr: AVG(debt_to_equity_ratio)
+        expr: CAST(AVG(debt_to_equity_ratio) AS DOUBLE)
       - name: low_risk_count
         expr: COUNT(1) FILTER (WHERE bankruptcy_risk = 'LOW')
       - name: medium_risk_count
@@ -213,7 +213,7 @@ CREATE OR REPLACE VIEW tenant_metrics
   COMMENT 'Commercial tenant financial and risk metrics.'
   AS $$
     version: 1.1
-    source: fins_team_3.lease_management.tenants
+    source: ${catalog}.${schema}.tenants
     dimensions:
       - name: industry_sector
         expr: COALESCE(industry_sector, 'Unknown')
@@ -229,15 +229,15 @@ CREATE OR REPLACE VIEW tenant_metrics
       - name: total_tenants
         expr: COUNT(1)
       - name: total_revenue
-        expr: SUM(annual_revenue)
+        expr: CAST(SUM(annual_revenue) AS DOUBLE)
       - name: avg_health_score
-        expr: AVG(financial_health_score)
+        expr: CAST(AVG(financial_health_score) AS DOUBLE)
       - name: avg_employee_count
-        expr: AVG(employee_count)
+        expr: CAST(AVG(employee_count) AS DOUBLE)
       - name: avg_revenue_growth
-        expr: AVG(revenue_growth_pct)
+        expr: CAST(AVG(revenue_growth_pct) AS DOUBLE)
       - name: avg_profit_margin
-        expr: AVG(profit_margin_pct)
+        expr: CAST(AVG(profit_margin_pct) AS DOUBLE)
       - name: growing_companies
         expr: COUNT(1) FILTER (WHERE revenue_growth_pct > 0)
       - name: declining_companies
@@ -278,7 +278,7 @@ CREATE OR REPLACE VIEW market_performance_metrics
   COMMENT 'Market-level performance metrics for portfolio analysis.'
   AS $$
     version: 1.1
-    source: fins_team_3.lease_management.silver_leases
+    source: ${catalog}.${schema}.silver_leases
     filter: tenant_name IS NOT NULL AND lease_end_date IS NOT NULL
     dimensions:
       - name: market
@@ -295,21 +295,21 @@ CREATE OR REPLACE VIEW market_performance_metrics
       - name: lease_count
         expr: COUNT(1)
       - name: total_sqft
-        expr: SUM(square_footage)
+        expr: CAST(SUM(square_footage) AS DOUBLE)
       - name: total_annual_rent
-        expr: SUM(estimated_annual_rent)
+        expr: CAST(SUM(estimated_annual_rent) AS DOUBLE)
       - name: avg_rent_psf
-        expr: AVG(base_rent_psf)
+        expr: CAST(AVG(base_rent_psf) AS DOUBLE)
       - name: min_rent_psf
-        expr: MIN(base_rent_psf)
+        expr: CAST(MIN(base_rent_psf) AS DOUBLE)
       - name: max_rent_psf
-        expr: MAX(base_rent_psf)
+        expr: CAST(MAX(base_rent_psf) AS DOUBLE)
       - name: walt_years
-        expr: "SUM(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25 * estimated_annual_rent) / NULLIF(SUM(estimated_annual_rent), 0)"
+        expr: "CAST(SUM(GREATEST(DATEDIFF(lease_end_date, CURRENT_DATE()), 0) / 365.25 * estimated_annual_rent) / NULLIF(SUM(estimated_annual_rent), 0) AS DOUBLE)"
       - name: avg_lease_size
-        expr: AVG(square_footage)
+        expr: CAST(AVG(square_footage) AS DOUBLE)
       - name: occupancy_value
-        expr: SUM(estimated_annual_rent) FILTER (WHERE DATEDIFF(lease_end_date, CURRENT_DATE()) > 0)
+        expr: CAST(SUM(estimated_annual_rent) FILTER (WHERE DATEDIFF(lease_end_date, CURRENT_DATE()) > 0) AS DOUBLE)
   $$;
 
 -- ============================================================================
