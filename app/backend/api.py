@@ -14,6 +14,9 @@ load_dotenv()
 
 # Claude endpoint configuration
 DATABRICKS_HOST = os.getenv('DATABRICKS_HOST', '').rstrip('/')
+# Ensure DATABRICKS_HOST has https:// scheme
+if DATABRICKS_HOST and not DATABRICKS_HOST.startswith(('http://', 'https://')):
+    DATABRICKS_HOST = f"https://{DATABRICKS_HOST}"
 DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN')
 CLAUDE_ENDPOINT_URL = f"{DATABRICKS_HOST}/serving-endpoints/databricks-claude-sonnet-4-5/invocations"
 
@@ -36,7 +39,9 @@ print(f"CATALOG: {CATALOG}")
 print(f"SCHEMA: {SCHEMA}")
 print(f"WAREHOUSE_ID: {WAREHOUSE_ID if WAREHOUSE_ID else 'NOT SET'}")
 print(f"VOLUME: {VOLUME_NAME}")
-print(f"DATABRICKS_HOST: {os.getenv('DATABRICKS_HOST', 'NOT SET')}")
+print(f"DATABRICKS_HOST (original): {os.getenv('DATABRICKS_HOST', 'NOT SET')}")
+print(f"DATABRICKS_HOST (with scheme): {DATABRICKS_HOST}")
+print(f"CLAUDE_ENDPOINT_URL: {CLAUDE_ENDPOINT_URL}")
 print(f"DATABRICKS_TOKEN: {'SET' if os.getenv('DATABRICKS_TOKEN') else 'NOT SET'}")
 print(f"{'='*60}\n")
 
