@@ -9,7 +9,7 @@ const API_BASE_URL = '/api';
 
 const Portfolio = () => {
   const [kpis, setKpis] = useState(null);
-  const [recentExtractions, setRecentExtractions] = useState([]);
+  const [, setRecentExtractions] = useState([]);
   const [allLeases, setAllLeases] = useState([]);
   const [marketSummary, setMarketSummary] = useState([]);
   const [locationData, setLocationData] = useState([]);

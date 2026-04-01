@@ -641,10 +641,23 @@ def upload_file():
         
         if success:
             print(f"File uploaded successfully: {file_path}")
+
+            # Trigger the Lease Extraction Pipeline job
+            pipeline_job_id = os.getenv('PIPELINE_JOB_ID')
+            pipeline_triggered = False
+            if pipeline_job_id:
+                try:
+                    run = client.jobs.run_now(job_id=int(pipeline_job_id))
+                    print(f"Pipeline job triggered: run_id={run.run_id}")
+                    pipeline_triggered = True
+                except Exception as job_err:
+                    print(f"Warning: Failed to trigger pipeline job: {job_err}")
+
             return jsonify({
                 'success': True,
                 'file_path': file_path,
-                'message': 'File uploaded successfully'
+                'message': 'File uploaded successfully',
+                'pipeline_triggered': pipeline_triggered
             })
         else:
             print(f"Upload failed: {error}")
@@ -1584,35 +1597,27 @@ def get_risk_assessment():
         return jsonify({'error': str(e)}), 500
 
 def call_claude_enrichment(prompt):
-    """Call Claude AI endpoint for enrichment"""
+    """Call Claude AI endpoint for enrichment using Databricks SDK"""
     try:
-        headers = {
-            "Authorization": f"Bearer {DATABRICKS_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        
+        client, error = get_client()
+        if error:
+            return None, f"Databricks client error: {error}"
+
+        print(f"Calling Claude endpoint via SDK: databricks-claude-sonnet-4-5")
         payload = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_tokens": 2000
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 2000,
         }
-        
-        print(f"Calling Claude endpoint: {CLAUDE_ENDPOINT_URL}")
-        response = requests.post(CLAUDE_ENDPOINT_URL, headers=headers, json=payload, timeout=60)
-        
-        if response.status_code == 200:
-            result = response.json()
-            # Extract the content from Claude's response
-            if 'choices' in result and len(result['choices']) > 0:
-                content = result['choices'][0].get('message', {}).get('content', '')
-                return content, None
-            return None, "No content in Claude response"
-        else:
-            return None, f"Claude endpoint returned {response.status_code}: {response.text}"
+        response = client.api_client.do(
+            "POST",
+            "/serving-endpoints/databricks-claude-sonnet-4-5/invocations",
+            body=payload,
+        )
+
+        if "choices" in response and len(response["choices"]) > 0:
+            content = response["choices"][0].get("message", {}).get("content", "")
+            return content, None
+        return None, "No content in Claude response"
     except Exception as e:
         return None, f"Error calling Claude: {str(e)}"
 

@@ -35,13 +35,15 @@ except ImportError:
 # Load environment variables
 load_dotenv()
 
+import os
+
 # Initialize Faker
 fake = Faker()
 
-# Configuration
-CATALOG = "fins_team_3"
-SCHEMA = "lease_management"
-WAREHOUSE_ID = "288a7ec183eea397"  # Update with your warehouse ID
+# Configuration - read from environment to match the app's runtime config
+CATALOG = os.getenv('DATABRICKS_CATALOG', 'fins_team_3')
+SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
+WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID', '288a7ec183eea397')
 
 # Realistic data pools
 INDUSTRIES = [

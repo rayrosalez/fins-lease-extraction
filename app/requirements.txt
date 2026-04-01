@@ -4,3 +4,4 @@ databricks-sdk>=0.18.0
 python-dotenv==1.0.0
 requests>=2.28.0
 werkzeug>=3.0.0
+faker>=22.0.0

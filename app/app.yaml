@@ -16,14 +16,17 @@ env:
     value: "8080"
   # Databricks catalog and schema configuration
   - name: DATABRICKS_CATALOG
-    value: "fins_team_3"
+    value: "ray_serverless_catalog"
   - name: DATABRICKS_SCHEMA
     value: "lease_management"
   - name: DATABRICKS_VOLUME
     value: "raw_lease_docs"
   # SQL Warehouse ID
   - name: DATABRICKS_WAREHOUSE_ID
-    value: "bd7ebbf7f6ddb295"
+    value: "4d3aa3611e72097d"
+  # Pipeline job ID for triggering after upload
+  - name: PIPELINE_JOB_ID
+    value: "124432466237376"
 
 # Resources that the app needs access to
 resources:

@@ -31,7 +31,7 @@ landlord_enrichment AS (
         'Return structured JSON with these fields.'
       ),
       modelParameters => named_struct(
-        'mcp_server_url', 'https://fe-vm-industry-solutions-buildathon.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
+        'mcp_server_url', 'https://fevm-ray-serverless.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
         'enable_web_search', true,
         'max_search_results', 5
       )
@@ -151,7 +151,7 @@ tenant_enrichment AS (
         'industry risk, recent news sentiment, and any litigation. Return structured JSON.'
       ),
       modelParameters => named_struct(
-        'mcp_server_url', 'https://fe-vm-industry-solutions-buildathon.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
+        'mcp_server_url', 'https://fevm-ray-serverless.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
         'enable_web_search', true,
         'max_search_results', 5
       )

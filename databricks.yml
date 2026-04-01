@@ -10,10 +10,4 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://fe-vm-industry-solutions-buildathon.cloud.databricks.com
-
-  ## Optionally, there could be 'staging' or 'prod' targets here.
-  #
-  # prod:
-  #   workspace:
-  #     host: https://fe-vm-industry-solutions-buildathon.cloud.databricks.com
+      host: https://fevm-ray-serverless.cloud.databricks.com
