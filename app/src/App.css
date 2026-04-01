@@ -142,6 +142,21 @@
   background: rgba(255, 54, 33, 0.1);
 }
 
+.nav-processing-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #FF3621;
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
 .nav-badge {
   background: #FF3621;
   color: white;

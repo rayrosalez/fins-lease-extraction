@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FiUploadCloud, FiFile, FiCheck, FiX, FiClock, FiInbox } from 'react-icons/fi';
+import { FiUploadCloud, FiFile, FiCheck, FiX, FiClock, FiInbox, FiLoader } from 'react-icons/fi';
 import ProcessingAnimation from './ProcessingAnimation';
 import PendingReviews from './PendingReviews';
 import './Upload.css';
 
-const Upload = () => {
+const Upload = ({ processingJob, setProcessingJob }) => {
   const [tab, setTab] = useState('upload'); // upload | reviews
   const [uploadState, setUploadState] = useState('idle');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -13,6 +13,57 @@ const Upload = () => {
   const [error, setError] = useState(null);
   const [isTimeout, setIsTimeout] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const pollingRef = useRef(false);
+
+  // On mount: if there's an active processing job, resume polling
+  useEffect(() => {
+    if (processingJob && !pollingRef.current) {
+      resumePolling(processingJob.filePath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resumePolling = async (filePath) => {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    setUploadState('processing');
+    setProcessingStage(3); // show extracting stage since we're resuming mid-process
+
+    const maxAttempts = 60;
+    const pollInterval = 5000;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (!pollingRef.current) return;
+      try {
+        const checkResponse = await fetch('/api/check-processing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: filePath })
+        });
+        const processResult = await checkResponse.json();
+
+        if (processResult.processed && processResult.record) {
+          setUploadState('upload_success');
+          if (setProcessingJob) setProcessingJob(null);
+          pollingRef.current = false;
+          try {
+            const res = await fetch('/api/records/count');
+            const data = await res.json();
+            if (res.ok) setPendingCount(data.count || 0);
+          } catch (e) { /* silent */ }
+          return;
+        }
+      } catch (err) {
+        console.log('Resume poll error (continuing):', err.message);
+      }
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    // Timed out
+    setUploadState('timeout_with_validation');
+    if (setProcessingJob) setProcessingJob(null);
+    pollingRef.current = false;
+  };
 
   // Fetch pending count on mount and periodically
   useEffect(() => {
@@ -77,6 +128,15 @@ const Upload = () => {
 
       console.log('File uploaded successfully:', result.file_path);
 
+      // Track processing job in parent so it survives tab switches
+      if (setProcessingJob) {
+        setProcessingJob({
+          fileName: selectedFile.name,
+          filePath: result.file_path,
+          startTime: Date.now(),
+        });
+      }
+
       setUploadState('processing');
       setProcessingStage(1);
 
@@ -102,6 +162,7 @@ const Upload = () => {
             if (processResult.processed && processResult.record) {
               console.log('Processing complete, record found:', processResult.record);
               setUploadState('upload_success');
+              if (setProcessingJob) setProcessingJob(null);
               // Refresh pending count
               try {
                 const res = await fetch('/api/records/count');
@@ -128,6 +189,7 @@ const Upload = () => {
         setIsTimeout(true);
         setError('AI extraction is taking longer than expected. Your file was uploaded successfully and extraction is still running.');
         setUploadState('timeout_with_validation');
+        if (setProcessingJob) setProcessingJob(null);
       };
 
       checkProcessing();
@@ -137,6 +199,7 @@ const Upload = () => {
       setIsTimeout(false);
       setError(err.message || 'An error occurred during upload. Please try again.');
       setUploadState('error');
+      if (setProcessingJob) setProcessingJob(null);
     }
   };
 
@@ -193,6 +256,22 @@ const Upload = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
+            {uploadState === 'idle' && processingJob && (
+              <motion.div
+                className="processing-banner"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => resumePolling(processingJob.filePath)}
+              >
+                <FiLoader size={18} className="spinning" />
+                <span>
+                  <strong>{processingJob.fileName}</strong> is still being processed.
+                </span>
+                <button className="banner-resume-btn">View Progress</button>
+              </motion.div>
+            )}
+
             {uploadState === 'idle' && (
               <div
                 className="upload-area"

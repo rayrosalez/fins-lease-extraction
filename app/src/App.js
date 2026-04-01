@@ -10,6 +10,8 @@ import { FiHelpCircle, FiX, FiMail } from 'react-icons/fi';
 function App() {
   const [activeView, setActiveView] = useState('home');
   const [showHelpModal, setShowHelpModal] = useState(false);
+  // Track background processing jobs across tab switches
+  const [processingJob, setProcessingJob] = useState(null); // { fileName, filePath, startTime }
 
   return (
     <div className="App">
@@ -45,6 +47,7 @@ function App() {
               onClick={() => setActiveView('upload')}
             >
               Upload & Validate
+              {processingJob && <span className="nav-processing-dot" title="Processing a document..." />}
             </button>
             <button 
               className={activeView === 'forecasting' ? 'nav-link active' : 'nav-link'}
@@ -108,7 +111,7 @@ function App() {
       {activeView === 'home' && <Hero onNavigate={setActiveView} />}
       {activeView === 'portfolio' && <Portfolio />}
       {activeView === 'chat' && <Chat />}
-      {activeView === 'upload' && <Upload />}
+      {activeView === 'upload' && <Upload processingJob={processingJob} setProcessingJob={setProcessingJob} />}
       {activeView === 'forecasting' && <Forecasting />}
     </div>
   );

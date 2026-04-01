@@ -244,6 +244,53 @@
   box-shadow: 0 6px 20px rgba(255, 54, 33, 0.4);
 }
 
+.processing-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: rgba(255, 54, 33, 0.08);
+  border: 1px solid rgba(255, 54, 33, 0.25);
+  border-radius: 12px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #ccc;
+  font-size: 0.95rem;
+}
+
+.processing-banner:hover {
+  background: rgba(255, 54, 33, 0.12);
+  border-color: rgba(255, 54, 33, 0.4);
+}
+
+.processing-banner .spinning {
+  color: #FF3621;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.banner-resume-btn {
+  margin-left: auto;
+  background: rgba(255, 54, 33, 0.15);
+  border: 1px solid rgba(255, 54, 33, 0.3);
+  color: #FF3621;
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.banner-resume-btn:hover {
+  background: rgba(255, 54, 33, 0.25);
+}
+
 .upload-tab-bar {
   display: flex;
   gap: 4px;
