@@ -142,6 +142,19 @@
   background: rgba(255, 54, 33, 0.1);
 }
 
+.nav-badge {
+  background: #FF3621;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 12px;
+  margin-left: 6px;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+  display: inline-block;
+}
+
 .cta-button {
   background: #FF3621;
   border: none;

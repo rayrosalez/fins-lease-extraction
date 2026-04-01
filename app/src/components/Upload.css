@@ -244,6 +244,95 @@
   box-shadow: 0 6px 20px rgba(255, 54, 33, 0.4);
 }
 
+.upload-tab-bar {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 4px;
+  display: inline-flex;
+}
+
+.upload-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #8899aa;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.upload-tab.active {
+  color: #FF3621;
+  background: rgba(255, 54, 33, 0.1);
+  font-weight: 600;
+}
+
+.tab-badge {
+  background: #FF3621;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.go-to-reviews-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #FF3621, #8B4513);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+}
+
+.go-to-reviews-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 54, 33, 0.4);
+}
+
+.upload-another-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: #8899aa;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 10px;
+  margin-left: 12px;
+}
+
+.upload-another-button:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
 /* Timeout with Validation State */
 .timeout-validation-state {
   text-align: center;

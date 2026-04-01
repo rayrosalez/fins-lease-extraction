@@ -18,55 +18,72 @@ const ResetModal = ({ isOpen, onClose }) => {
     setResult(null);
     
     try {
-      // Stage 1: Purging
-      setProgress({ stage: 'Purging existing data...', percent: 10 });
-      
-      // Small delay to show initial progress
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Stage 2: Optimizing
-      setProgress({ stage: 'Optimizing Delta tables...', percent: 25 });
-      
-      // Make the actual API call
+      // Stage 1: Kick off reset
+      setProgress({ stage: 'Starting reset...', percent: 10 });
+
       const response = await fetch('/api/reset-demo-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ num_leases: numLeases })
       });
 
-      // Stage 3: Generating (happens during API call)
-      setProgress({ stage: 'Generating synthetic data...', percent: 60 });
-      
-      // Small delay to show progress
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Stage 4: Verifying
-      setProgress({ stage: 'Verifying data...', percent: 90 });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setProgress({ stage: 'Complete!', percent: 100 });
-        setResult({
-          success: true,
-          message: data.message,
-          counts: data.counts,
-          leases: data.leases_generated,
-          tenants: data.tenants_created,
-          landlords: data.landlords_created
-        });
-        
-        // Refresh the page after a short delay to show the new data
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
-      } else {
-        setProgress({ stage: 'Error', percent: 0 });
-        setResult({
-          success: false,
-          error: data.error || 'Unknown error occurred'
-        });
+      const kickoff = await response.json();
+      if (!response.ok) {
+        throw new Error(kickoff.error || 'Failed to start reset');
       }
+
+      // Stage 2: Poll for completion
+      const stages = [
+        { stage: 'Purging existing data...', percent: 20 },
+        { stage: 'Optimizing Delta tables...', percent: 35 },
+        { stage: 'Generating synthetic data...', percent: 55 },
+        { stage: 'Inserting records...', percent: 75 },
+        { stage: 'Verifying data...', percent: 90 },
+      ];
+      let stageIdx = 0;
+
+      const pollStatus = async () => {
+        const maxAttempts = 120; // up to 10 minutes
+        for (let i = 0; i < maxAttempts; i++) {
+          // Cycle through visual stages
+          if (i % 6 === 0 && stageIdx < stages.length - 1) {
+            stageIdx++;
+          }
+          setProgress(stages[Math.min(stageIdx, stages.length - 1)]);
+
+          await new Promise(resolve => setTimeout(resolve, 5000));
+
+          try {
+            const statusRes = await fetch('/api/reset-demo-data/status');
+            const statusData = await statusRes.json();
+
+            if (statusData.status === 'complete') {
+              if (statusData.success) {
+                setProgress({ stage: 'Complete!', percent: 100 });
+                setResult({
+                  success: true,
+                  message: statusData.message,
+                  counts: statusData.counts,
+                  leases: statusData.leases_generated,
+                  tenants: statusData.tenants_created,
+                  landlords: statusData.landlords_created
+                });
+                setTimeout(() => { window.location.reload(); }, 3000);
+              } else {
+                throw new Error(statusData.error || 'Reset failed');
+              }
+              return;
+            }
+            // still running — continue polling
+          } catch (pollErr) {
+            console.log('Poll error (continuing):', pollErr.message);
+          }
+        }
+        throw new Error('Reset timed out after 10 minutes');
+      };
+
+      await pollStatus();
+
     } catch (error) {
       setProgress({ stage: 'Error', percent: 0 });
       setResult({

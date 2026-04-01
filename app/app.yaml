@@ -24,7 +24,10 @@ env:
   # SQL Warehouse ID
   - name: DATABRICKS_WAREHOUSE_ID
     value: "4d3aa3611e72097d"
-  # Pipeline job ID for triggering after upload
+  # Ingestion job (steps 1-2: ingest + extract) - triggered on upload
+  - name: INGEST_JOB_ID
+    value: "1063100117326271"
+  # Full pipeline job (steps 3-4: enrich + promote) - triggered after validation
   - name: PIPELINE_JOB_ID
     value: "124432466237376"
 
@@ -39,3 +42,13 @@ resources:
     serving_endpoint:
       name: databricks-claude-sonnet-4-5
       permission: CAN_QUERY
+  # Ingestion job (steps 1-2)
+  - name: ingest-job
+    job:
+      id: "1063100117326271"
+      permission: CAN_MANAGE_RUN
+  # Full pipeline job (steps 3-4)
+  - name: pipeline-job
+    job:
+      id: "124432466237376"
+      permission: CAN_MANAGE_RUN

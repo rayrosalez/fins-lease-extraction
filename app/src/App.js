@@ -40,7 +40,7 @@ function App() {
             >
               Chat
             </button>
-            <button 
+            <button
               className={activeView === 'upload' ? 'nav-link active' : 'nav-link'}
               onClick={() => setActiveView('upload')}
             >
