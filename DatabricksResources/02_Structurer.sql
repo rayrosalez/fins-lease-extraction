@@ -2,7 +2,7 @@
 -- FIXED VERSION: Only process raw records that haven't been extracted yet
 -- This prevents duplicate insertions into bronze_leases
 
-INSERT INTO fins_team_3.lease_management.bronze_leases (
+INSERT INTO ${CATALOG}.${SCHEMA}.bronze_leases (
   uploaded_at, landlord_name, landlord_address, tenant_name, tenant_address, 
   industry_sector, suite_number, lease_type, commencement_date, expiration_date, 
   term_months, rentable_square_feet, annual_base_rent, base_rent_psf, 
@@ -21,11 +21,11 @@ WITH agent_raw_output AS (
       raw.raw_parsed_json,
       failOnError => false
     ) AS response
-  FROM fins_team_3.lease_management.raw_leases raw
+  FROM ${CATALOG}.${SCHEMA}.raw_leases raw
   -- CRITICAL FIX: Only process files that haven't been extracted to bronze yet
   WHERE NOT EXISTS (
     SELECT 1 
-    FROM fins_team_3.lease_management.bronze_leases bronze
+    FROM ${CATALOG}.${SCHEMA}.bronze_leases bronze
     WHERE bronze.uploaded_at = raw.ingested_at
   )
   -- Process up to 20 NEW records at a time

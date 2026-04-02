@@ -1,5 +1,5 @@
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Create Landlord table with financial and profile information
 CREATE TABLE IF NOT EXISTS landlords (

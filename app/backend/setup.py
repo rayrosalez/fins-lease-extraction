@@ -25,7 +25,7 @@ def main():
     db_host = input("Databricks Host (e.g., https://your-workspace.cloud.databricks.com): ").strip()
     db_token = input("Databricks Personal Access Token: ").strip()
     warehouse_id = input("SQL Warehouse ID: ").strip()
-    catalog = input("Catalog name [fins_team_3]: ").strip() or "fins_team_3"
+    catalog = input("Catalog name [your_catalog]: ").strip() or "your_catalog"
     schema = input("Schema name [lease_management]: ").strip() or "lease_management"
     
     # Create .env file

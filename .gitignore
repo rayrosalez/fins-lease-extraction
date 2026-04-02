@@ -1,5 +1,12 @@
-# .env file - contains sensitive credentials
+# Credentials and config
 .env
+*.env
+!config.env.template
+config.env
+
+# Setup artifacts
+app/app.yaml.rendered
+app/app.yaml.deploy
 
 # Virtual environment
 venv/
@@ -12,6 +19,13 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Node
+node_modules/
+app/node_modules/
+
+# Build output
+app/build/
 
 # IDE
 .vscode/
@@ -27,6 +41,7 @@ Thumbs.db
 # Streamlit
 .streamlit/
 
+# Databricks
+.databricks
 .cursorrules
 generated_leases/
-.databricks

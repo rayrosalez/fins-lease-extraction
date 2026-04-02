@@ -1,7 +1,7 @@
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
---DROP TABLE IF EXISTS fins_team_3.lease_management.raw_leases;
+--DROP TABLE IF EXISTS ${CATALOG}.${SCHEMA}.raw_leases;
 
 CREATE TABLE IF NOT EXISTS raw_leases (
     file_path STRING,

@@ -5,7 +5,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("catalog", "ray_serverless_catalog", "UC Catalog")
+dbutils.widgets.text("catalog", "REPLACE_WITH_YOUR_CATALOG", "UC Catalog")
 dbutils.widgets.text("schema", "lease_management", "UC Schema")
 dbutils.widgets.text("serving_endpoint", "databricks-claude-sonnet-4-5", "Serving Endpoint")
 

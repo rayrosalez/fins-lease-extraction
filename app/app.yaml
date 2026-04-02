@@ -1,5 +1,8 @@
-# Databricks App Configuration for Lease Extraction Application
+# Databricks App Configuration for LeaseMiner
 # Documentation: https://docs.databricks.com/en/dev-tools/databricks-apps/index.html
+#
+# NOTE: Placeholders (__VALUE__) are replaced by setup.sh during deployment.
+# Do not manually edit the deployed version — re-run setup.sh instead.
 
 command:
   - "/bin/bash"
@@ -14,41 +17,33 @@ env:
     value: "0"
   - name: PORT
     value: "8080"
-  # Databricks catalog and schema configuration
   - name: DATABRICKS_CATALOG
-    value: "ray_serverless_catalog"
+    value: "__DATABRICKS_CATALOG__"
   - name: DATABRICKS_SCHEMA
-    value: "lease_management"
+    value: "__DATABRICKS_SCHEMA__"
   - name: DATABRICKS_VOLUME
-    value: "raw_lease_docs"
-  # SQL Warehouse ID
+    value: "__DATABRICKS_VOLUME__"
   - name: DATABRICKS_WAREHOUSE_ID
-    value: "4d3aa3611e72097d"
-  # Ingestion job (steps 1-2: ingest + extract) - triggered on upload
+    value: "__DATABRICKS_WAREHOUSE_ID__"
   - name: INGEST_JOB_ID
-    value: "1063100117326271"
-  # Full pipeline job (steps 3-4: enrich + promote) - triggered after validation
+    value: "__INGEST_JOB_ID__"
   - name: PIPELINE_JOB_ID
-    value: "124432466237376"
+    value: "__PIPELINE_JOB_ID__"
 
 # Resources that the app needs access to
 resources:
-  # SQL Warehouse for query execution
   - name: sql-warehouse
     sql_warehouse:
       permission: CAN_USE
-  # Serving endpoint for Claude AI (used for MCP enrichment)
   - name: claude-endpoint
     serving_endpoint:
-      name: databricks-claude-sonnet-4-5
+      name: __SERVING_ENDPOINT__
       permission: CAN_QUERY
-  # Ingestion job (steps 1-2)
   - name: ingest-job
     job:
-      id: "1063100117326271"
+      id: "__INGEST_JOB_ID__"
       permission: CAN_MANAGE_RUN
-  # Full pipeline job (steps 3-4)
   - name: pipeline-job
     job:
-      id: "124432466237376"
+      id: "__PIPELINE_JOB_ID__"
       permission: CAN_MANAGE_RUN

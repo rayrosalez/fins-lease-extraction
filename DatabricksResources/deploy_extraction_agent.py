@@ -13,8 +13,11 @@
 import mlflow
 print(f"MLflow version: {mlflow.__version__}")
 
-CATALOG = "ray_serverless_catalog"
-SCHEMA = "lease_management"
+dbutils.widgets.text("catalog", "REPLACE_WITH_YOUR_CATALOG", "UC Catalog")
+dbutils.widgets.text("schema", "lease_management", "UC Schema")
+
+CATALOG = dbutils.widgets.get("catalog")
+SCHEMA = dbutils.widgets.get("schema")
 MODEL_NAME = f"{CATALOG}.{SCHEMA}.lease_extraction_agent"
 
 # COMMAND ----------

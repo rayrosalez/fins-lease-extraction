@@ -27,7 +27,7 @@ app = Flask(__name__, static_folder=STATIC_FOLDER, static_url_path='')
 CORS(app)
 
 # Configuration
-CATALOG = os.getenv('DATABRICKS_CATALOG', 'fins_team_3')
+CATALOG = os.getenv('DATABRICKS_CATALOG', '')
 SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
 WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID')
 VOLUME_NAME = os.getenv('DATABRICKS_VOLUME', 'raw_lease_docs')

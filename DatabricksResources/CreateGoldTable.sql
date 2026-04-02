@@ -1,6 +1,6 @@
 %sql
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 CREATE OR REPLACE VIEW gold_lease_risk_scores AS
 WITH enriched_leases AS (

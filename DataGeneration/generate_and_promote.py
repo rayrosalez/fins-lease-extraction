@@ -1,3 +1,4 @@
+import os
 """
 Complete Data Generation Pipeline
 ==================================
@@ -28,10 +29,10 @@ load_dotenv()
 fake = Faker()
 
 # Configuration
-CATALOG = "fins_team_3"
+CATALOG = os.getenv('DATABRICKS_CATALOG', '')
 SCHEMA = "lease_management"
 TABLE = "bronze_leases"
-WAREHOUSE_ID = "288a7ec183eea397"
+WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID', '')
 
 # Import data pools from generate_synthetic_leases
 INDUSTRIES = [

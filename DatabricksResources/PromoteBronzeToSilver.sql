@@ -4,8 +4,8 @@
 -- This script promotes VERIFIED bronze records to silver
 -- Run this in Databricks SQL Editor or Notebook
 
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Option 1: Promote ALL bronze records (regardless of validation status)
 -- Uncomment this section if you want to promote everything

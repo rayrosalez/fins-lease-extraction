@@ -41,9 +41,9 @@ import os
 fake = Faker()
 
 # Configuration - read from environment to match the app's runtime config
-CATALOG = os.getenv('DATABRICKS_CATALOG', 'fins_team_3')
+CATALOG = os.getenv('DATABRICKS_CATALOG', os.getenv('DATABRICKS_CATALOG', ''))
 SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
-WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID', '288a7ec183eea397')
+WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID', os.getenv('DATABRICKS_WAREHOUSE_ID', ''))
 
 # Realistic data pools
 INDUSTRIES = [

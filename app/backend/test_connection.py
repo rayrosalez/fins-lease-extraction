@@ -18,7 +18,7 @@ env_vars = {
     'DATABRICKS_HOST': os.getenv('DATABRICKS_HOST'),
     'DATABRICKS_TOKEN': os.getenv('DATABRICKS_TOKEN'),
     'DATABRICKS_WAREHOUSE_ID': os.getenv('DATABRICKS_WAREHOUSE_ID'),
-    'DATABRICKS_CATALOG': os.getenv('DATABRICKS_CATALOG', 'fins_team_3'),
+    'DATABRICKS_CATALOG': os.getenv('DATABRICKS_CATALOG', ''),
     'DATABRICKS_SCHEMA': os.getenv('DATABRICKS_SCHEMA', 'lease_management'),
 }
 

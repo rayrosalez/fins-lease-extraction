@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 
 # --- 1. Configuration ---
 # Update these to match your environment setup
-CATALOG = "fins_team_3"
+CATALOG = "${CATALOG}"
 SCHEMA = "lease_management"
 VOLUME_NAME = "raw_lease_docs"
 

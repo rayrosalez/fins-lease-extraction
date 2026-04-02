@@ -11,7 +11,7 @@ load_dotenv()
 DATABRICKS_HOST = os.getenv('DATABRICKS_HOST')
 DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN')
 WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID')
-CATALOG = os.getenv('DATABRICKS_CATALOG', 'fins_team_3')
+CATALOG = os.getenv('DATABRICKS_CATALOG', '')
 SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
 
 

@@ -1,5 +1,5 @@
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Drop the existing silver table (since it's empty)
 --DROP TABLE IF EXISTS silver_leases;

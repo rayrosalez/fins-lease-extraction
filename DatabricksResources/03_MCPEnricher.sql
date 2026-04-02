@@ -9,9 +9,9 @@ WITH new_landlords AS (
     REPLACE(REPLACE(LOWER(landlord_name), ' ', '_'), ',', '') AS landlord_id,
     landlord_name,
     landlord_address
-  FROM fins_team_3.lease_management.bronze_leases
+  FROM ${CATALOG}.${SCHEMA}.bronze_leases
   WHERE landlord_name IS NOT NULL
-    AND landlord_name NOT IN (SELECT landlord_name FROM fins_team_3.lease_management.landlords)
+    AND landlord_name NOT IN (SELECT landlord_name FROM ${CATALOG}.${SCHEMA}.landlords)
 ),
 
 -- Step 2: Call MCP server to enrich landlord information
@@ -21,7 +21,7 @@ landlord_enrichment AS (
     landlord_name,
     landlord_address,
     ai_query(
-      'fins_team_3.lease_management.mcp_enrichment_agent',
+      '${CATALOG}.${SCHEMA}.mcp_enrichment_agent',
       CONCAT(
         'Search the web for financial and company information about this commercial real estate landlord/property owner: ',
         landlord_name,
@@ -31,7 +31,7 @@ landlord_enrichment AS (
         'Return structured JSON with these fields.'
       ),
       modelParameters => named_struct(
-        'mcp_server_url', 'https://fevm-ray-serverless.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
+        'mcp_server_url', '__MCP_SERVER_URL__',
         'enable_web_search', true,
         'max_search_results', 5
       )
@@ -60,7 +60,7 @@ parsed_landlord_enrichment AS (
 )
 
 -- Step 4: Insert/Update landlords table
-MERGE INTO fins_team_3.lease_management.landlords AS target
+MERGE INTO ${CATALOG}.${SCHEMA}.landlords AS target
 USING (
   SELECT
     landlord_id,
@@ -126,9 +126,9 @@ WITH new_tenants AS (
     tenant_name,
     tenant_address,
     industry_sector
-  FROM fins_team_3.lease_management.bronze_leases
+  FROM ${CATALOG}.${SCHEMA}.bronze_leases
   WHERE tenant_name IS NOT NULL
-    AND tenant_name NOT IN (SELECT tenant_name FROM fins_team_3.lease_management.tenants)
+    AND tenant_name NOT IN (SELECT tenant_name FROM ${CATALOG}.${SCHEMA}.tenants)
 ),
 
 -- Step 2: Call MCP server to enrich tenant information
@@ -139,7 +139,7 @@ tenant_enrichment AS (
     tenant_address,
     industry_sector,
     ai_query(
-      'fins_team_3.lease_management.mcp_enrichment_agent',
+      '${CATALOG}.${SCHEMA}.mcp_enrichment_agent',
       CONCAT(
         'Search the web for financial and company information about this business/tenant: ',
         tenant_name,
@@ -151,7 +151,7 @@ tenant_enrichment AS (
         'industry risk, recent news sentiment, and any litigation. Return structured JSON.'
       ),
       modelParameters => named_struct(
-        'mcp_server_url', 'https://fevm-ray-serverless.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction',
+        'mcp_server_url', '__MCP_SERVER_URL__',
         'enable_web_search', true,
         'max_search_results', 5
       )
@@ -182,7 +182,7 @@ parsed_tenant_enrichment AS (
 )
 
 -- Step 4: Insert/Update tenants table
-MERGE INTO fins_team_3.lease_management.tenants AS target
+MERGE INTO ${CATALOG}.${SCHEMA}.tenants AS target
 USING (
   SELECT
     tenant_id,
@@ -255,18 +255,18 @@ WHEN NOT MATCHED THEN INSERT *;
 
 %sql
 -- Mark bronze records as enriched and link to landlord/tenant tables
-UPDATE fins_team_3.lease_management.bronze_leases bl
+UPDATE ${CATALOG}.${SCHEMA}.bronze_leases bl
 SET 
   validation_status = CASE 
     WHEN validation_status = 'NEW' THEN 'ENRICHED'
     ELSE validation_status
   END
 WHERE EXISTS (
-  SELECT 1 FROM fins_team_3.lease_management.landlords l 
+  SELECT 1 FROM ${CATALOG}.${SCHEMA}.landlords l 
   WHERE REPLACE(REPLACE(LOWER(bl.landlord_name), ' ', '_'), ',', '') = l.landlord_id
 )
 AND EXISTS (
-  SELECT 1 FROM fins_team_3.lease_management.tenants t 
+  SELECT 1 FROM ${CATALOG}.${SCHEMA}.tenants t 
   WHERE REPLACE(REPLACE(LOWER(bl.tenant_name), ' ', '_'), ',', '') = t.tenant_id
 );
 

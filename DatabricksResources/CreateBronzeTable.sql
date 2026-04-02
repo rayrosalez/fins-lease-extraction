@@ -1,9 +1,9 @@
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
-DROP TABLE IF EXISTS fins_team_3.lease_management.bronze_leases;
+DROP TABLE IF EXISTS ${CATALOG}.${SCHEMA}.bronze_leases;
 
-CREATE TABLE IF NOT EXISTS fins_team_3.lease_management.bronze_leases(
+CREATE TABLE IF NOT EXISTS ${CATALOG}.${SCHEMA}.bronze_leases(
     extraction_id BIGINT GENERATED ALWAYS AS IDENTITY,
     raw_source_row_id BIGINT,
     uploaded_at TIMESTAMP COMMENT 'Timestamp when file was uploaded to bronze layer',

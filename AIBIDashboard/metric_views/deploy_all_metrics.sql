@@ -2,7 +2,7 @@
 -- Run this script to create all portfolio metric views in your Unity Catalog
 -- Update the catalog and schema as needed
 
-USE CATALOG fins_team_3;
+USE CATALOG ${CATALOG};
 USE SCHEMA lease_management;
 
 -- ============================================================================

@@ -8,8 +8,8 @@
 -- Run this script in Databricks SQL Editor
 -- =============================================
 
-USE CATALOG fins_team_3;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Show current record counts before purge
 SELECT '=== BEFORE PURGE ===' as status;

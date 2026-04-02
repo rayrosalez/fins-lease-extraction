@@ -1,13 +1,14 @@
-# This is a Databricks asset bundle definition for fins-lease-extraction-for-repe.
-# The Databricks extension requires databricks.yml configuration file.
-# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+# Databricks Asset Bundle for LeaseMiner
+# See https://docs.databricks.com/dev-tools/bundles/index.html
 
 bundle:
-  name: fins-lease-extraction-for-repe
+  name: fins-lease-extraction
 
 targets:
   dev:
     mode: development
     default: true
     workspace:
-      host: https://fevm-ray-serverless.cloud.databricks.com
+      # Set via: databricks auth login <your-workspace-url>
+      # Or override with: databricks bundle deploy --target dev -p <profile>
+      host: ${DATABRICKS_HOST}

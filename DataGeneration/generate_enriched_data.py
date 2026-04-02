@@ -1,3 +1,4 @@
+import os
 """
 Comprehensive Synthetic Data Generator with Enrichment
 =======================================================
@@ -47,9 +48,9 @@ load_dotenv()
 fake = Faker()
 
 # Configuration
-CATALOG = "fins_team_3"
+CATALOG = os.getenv("DATABRICKS_CATALOG", "")
 SCHEMA = "lease_management"
-WAREHOUSE_ID = "288a7ec183eea397"  # Update with your warehouse ID
+WAREHOUSE_ID = os.getenv("DATABRICKS_WAREHOUSE_ID", "")
 
 # Realistic data pools
 INDUSTRIES = [

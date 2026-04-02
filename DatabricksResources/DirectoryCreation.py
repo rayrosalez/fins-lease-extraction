@@ -1,8 +1,8 @@
 import dbutils
 
 # Define paths for the Volumes
-volume_path = "/Volumes/fins_team_3/lease_management/raw_lease_docs"
-checkpoint_path = "/Volumes/fins_team_3/lease_management/pipeline_checkpoints/autoloader_checkpoints"
+volume_path = "/Volumes/${CATALOG}/lease_management/raw_lease_docs"
+checkpoint_path = "/Volumes/${CATALOG}/lease_management/pipeline_checkpoints/autoloader_checkpoints"
 
 # Create internal directories for organizational workflow
 dbutils.fs.mkdirs(f"{volume_path}/uploads")

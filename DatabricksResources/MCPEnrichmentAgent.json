@@ -1,7 +1,7 @@
 {
   "name": "MCP Enrichment Agent",
   "description": "Agent that uses MCP server to search the web and enrich landlord/tenant financial information",
-  "mcp_server_url": "https://fevm-ray-serverless.cloud.databricks.com/api/2.0/mcp/external/fins-lease-extraction",
+  "mcp_server_url": "__MCP_SERVER_URL__",
   "landlord_enrichment_schema": {
     "type": "object",
     "properties": {
