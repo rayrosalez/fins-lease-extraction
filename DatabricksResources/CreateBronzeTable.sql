@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS fins_team_3.lease_management.bronze_leases(
     property_country STRING COMMENT 'Country where property is located',
     raw_json_payload STRING,
     is_fully_extracted BOOLEAN,
-    validation_status STRING
+    validation_status STRING,
+    trace_id STRING COMMENT 'UUID correlation ID inherited from raw_leases'
 )
 USING DELTA
 TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.feature.allowColumnDefaults'='supported');

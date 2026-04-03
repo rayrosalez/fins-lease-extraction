@@ -103,9 +103,30 @@ WHEN MATCHED THEN UPDATE SET
 WHEN NOT MATCHED THEN INSERT *
 """
 
+import time as _time
+EVENTS_TABLE = f"{CATALOG}.{SCHEMA}.pipeline_events"
+
+_ll_start = _time.time()
 spark.sql(landlord_sql)
+_ll_duration = int((_time.time() - _ll_start) * 1000)
 ll_count = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.landlords").first()[0]
 print(f"Landlord enrichment complete. Total landlords: {ll_count}")
+
+# Log enrichment events per trace_id
+_ll_traces = spark.sql(f"""
+    SELECT DISTINCT b.trace_id
+    FROM {CATALOG}.{SCHEMA}.bronze_leases b
+    JOIN {CATALOG}.{SCHEMA}.landlords l
+      ON REPLACE(REPLACE(LOWER(b.landlord_name), ' ', '_'), ',', '') = l.landlord_id
+    WHERE b.trace_id IS NOT NULL
+""").collect()
+for row in _ll_traces:
+    if row.trace_id:
+        spark.sql(f"""
+            INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, metadata)
+            VALUES ('{row.trace_id}', 'ENRICH_LANDLORD', 'COMPLETED', {_ll_duration},
+                    '{{"enrichment_source": "AI_CLAUDE", "confidence": 0.80}}')
+        """)
 
 # COMMAND ----------
 
@@ -203,9 +224,27 @@ WHEN MATCHED THEN UPDATE SET
 WHEN NOT MATCHED THEN INSERT *
 """
 
+_t_start = _time.time()
 spark.sql(tenant_sql)
+_t_duration = int((_time.time() - _t_start) * 1000)
 t_count = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.tenants").first()[0]
 print(f"Tenant enrichment complete. Total tenants: {t_count}")
+
+# Log tenant enrichment events per trace_id
+_t_traces = spark.sql(f"""
+    SELECT DISTINCT b.trace_id
+    FROM {CATALOG}.{SCHEMA}.bronze_leases b
+    JOIN {CATALOG}.{SCHEMA}.tenants t
+      ON REPLACE(REPLACE(LOWER(b.tenant_name), ' ', '_'), ',', '') = t.tenant_id
+    WHERE b.trace_id IS NOT NULL
+""").collect()
+for row in _t_traces:
+    if row.trace_id:
+        spark.sql(f"""
+            INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, metadata)
+            VALUES ('{row.trace_id}', 'ENRICH_TENANT', 'COMPLETED', {_t_duration},
+                    '{{"enrichment_source": "AI_CLAUDE", "confidence": 0.80}}')
+        """)
 
 # COMMAND ----------
 
