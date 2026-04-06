@@ -112,20 +112,33 @@ _ll_duration = int((_time.time() - _ll_start) * 1000)
 ll_count = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.landlords").first()[0]
 print(f"Landlord enrichment complete. Total landlords: {ll_count}")
 
-# Log enrichment events per trace_id
+# Estimate tokens for landlord enrichment and log events per trace_id
+import json as _json
 _ll_traces = spark.sql(f"""
-    SELECT DISTINCT b.trace_id
+    SELECT DISTINCT b.trace_id, COUNT(DISTINCT b.landlord_name) as landlord_count
     FROM {CATALOG}.{SCHEMA}.bronze_leases b
     JOIN {CATALOG}.{SCHEMA}.landlords l
       ON REPLACE(REPLACE(LOWER(b.landlord_name), ' ', '_'), ',', '') = l.landlord_id
     WHERE b.trace_id IS NOT NULL
+    GROUP BY b.trace_id
 """).collect()
+# Rough estimate: ~200 input tokens per prompt, ~300 output tokens per landlord enrichment
 for row in _ll_traces:
     if row.trace_id:
+        lc = row.landlord_count or 1
+        metadata = _json.dumps({
+            "enrichment_source": "AI_CLAUDE",
+            "confidence": 0.80,
+            "landlords_enriched": lc,
+            "est_input_tokens": lc * 200,
+            "est_output_tokens": lc * 300,
+            "est_total_tokens": lc * 500,
+            "token_estimation_method": "per_entity_estimate"
+        })
         spark.sql(f"""
             INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, metadata)
             VALUES ('{row.trace_id}', 'ENRICH_LANDLORD', 'COMPLETED', {_ll_duration},
-                    '{{"enrichment_source": "AI_CLAUDE", "confidence": 0.80}}')
+                    '{metadata}')
         """)
 
 # COMMAND ----------
@@ -230,20 +243,32 @@ _t_duration = int((_time.time() - _t_start) * 1000)
 t_count = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.tenants").first()[0]
 print(f"Tenant enrichment complete. Total tenants: {t_count}")
 
-# Log tenant enrichment events per trace_id
+# Estimate tokens for tenant enrichment and log events per trace_id
 _t_traces = spark.sql(f"""
-    SELECT DISTINCT b.trace_id
+    SELECT DISTINCT b.trace_id, COUNT(DISTINCT b.tenant_name) as tenant_count
     FROM {CATALOG}.{SCHEMA}.bronze_leases b
     JOIN {CATALOG}.{SCHEMA}.tenants t
       ON REPLACE(REPLACE(LOWER(b.tenant_name), ' ', '_'), ',', '') = t.tenant_id
     WHERE b.trace_id IS NOT NULL
+    GROUP BY b.trace_id
 """).collect()
+# Rough estimate: ~250 input tokens per prompt, ~400 output tokens per tenant enrichment
 for row in _t_traces:
     if row.trace_id:
+        tc = row.tenant_count or 1
+        metadata = _json.dumps({
+            "enrichment_source": "AI_CLAUDE",
+            "confidence": 0.80,
+            "tenants_enriched": tc,
+            "est_input_tokens": tc * 250,
+            "est_output_tokens": tc * 400,
+            "est_total_tokens": tc * 650,
+            "token_estimation_method": "per_entity_estimate"
+        })
         spark.sql(f"""
             INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, metadata)
             VALUES ('{row.trace_id}', 'ENRICH_TENANT', 'COMPLETED', {_t_duration},
-                    '{{"enrichment_source": "AI_CLAUDE", "confidence": 0.80}}')
+                    '{metadata}')
         """)
 
 # COMMAND ----------

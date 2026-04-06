@@ -126,19 +126,46 @@ print(f"Total bronze_leases records: {count}")
 
 # COMMAND ----------
 
-# Log pipeline events for structured records
+# Log pipeline events with token estimates for structured records
 EVENTS_TABLE = f"{CATALOG}.{SCHEMA}.pipeline_events"
-structured_traces = spark.sql(f"""
-    SELECT trace_id, COUNT(*) as cnt
+
+# Estimate tokens from input/output text (approx 4 chars per token)
+_token_stats = spark.sql(f"""
+    SELECT
+        trace_id,
+        COUNT(*) as cnt,
+        SUM(CAST(LENGTH(raw_json_payload) / 4 AS INT)) as est_output_tokens,
+        SUM(CAST(LENGTH(raw_json_payload) / 4 AS INT)) + 500 as est_total_tokens
     FROM {CATALOG}.{SCHEMA}.bronze_leases
     WHERE trace_id IS NOT NULL AND validation_status = 'NEW'
     GROUP BY trace_id
 """).collect()
 
-for row in structured_traces:
+# Also get input sizes from raw_leases for input token estimates
+_input_stats = spark.sql(f"""
+    SELECT
+        trace_id,
+        SUM(CAST(LENGTH(CAST(raw_parsed_json AS STRING)) / 4 AS INT)) as est_input_tokens
+    FROM {CATALOG}.{SCHEMA}.raw_leases
+    WHERE trace_id IS NOT NULL
+    GROUP BY trace_id
+""").collect()
+_input_map = {r.trace_id: r.est_input_tokens for r in _input_stats if r.trace_id}
+
+for row in _token_stats:
     if row.trace_id:
+        est_input = _input_map.get(row.trace_id, 0) or 0
+        est_output = row.est_output_tokens or 0
+        import json as _json
+        metadata = _json.dumps({
+            "endpoint": ENDPOINT,
+            "est_input_tokens": est_input,
+            "est_output_tokens": est_output,
+            "est_total_tokens": est_input + est_output,
+            "token_estimation_method": "char_length_div_4"
+        })
         spark.sql(f"""
             INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, records_affected, metadata)
             VALUES ('{row.trace_id}', 'STRUCTURE', 'COMPLETED', {_struct_duration}, {row.cnt},
-                    '{{"endpoint": "{ENDPOINT}"}}')
+                    '{metadata}')
         """)
