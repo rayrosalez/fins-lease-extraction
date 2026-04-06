@@ -1,4 +1,4 @@
-USE CATALOG fins_team_3;
+USE CATALOG ray_serverless_catalog;
 USE SCHEMA lease_management;
 
 CREATE TABLE IF NOT EXISTS pipeline_events (

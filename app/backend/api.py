@@ -426,8 +426,88 @@ def health_check():
 
 @app.route('/metrics', methods=['GET'])
 def metrics():
-    """Metrics endpoint for Databricks Apps monitoring"""
-    return '', 200
+    """Prometheus-style metrics endpoint for monitoring integration"""
+    lines = []
+
+    try:
+        # Upload and extraction counters
+        upload_data, _ = execute_query(f"""
+            SELECT
+                COUNT(*) as total_uploads,
+                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_uploads,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed_uploads,
+                AVG(duration_ms) / 1000.0 as avg_upload_duration_s
+            FROM {CATALOG}.{SCHEMA}.pipeline_events
+            WHERE stage = 'UPLOAD'
+        """)
+        if upload_data and upload_data[0]:
+            row = upload_data[0]
+            lines.append(f'# HELP lease_uploads_total Total lease document uploads')
+            lines.append(f'# TYPE lease_uploads_total counter')
+            lines.append(f'lease_uploads_total {row[0] or 0}')
+
+        # Extraction success/failure from STRUCTURE stage
+        struct_data, _ = execute_query(f"""
+            SELECT
+                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as successes,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failures,
+                AVG(duration_ms) / 1000.0 as avg_duration_s
+            FROM {CATALOG}.{SCHEMA}.pipeline_events
+            WHERE stage = 'STRUCTURE'
+        """)
+        if struct_data and struct_data[0]:
+            row = struct_data[0]
+            lines.append(f'# HELP extraction_success_total Successful lease extractions')
+            lines.append(f'# TYPE extraction_success_total counter')
+            lines.append(f'extraction_success_total {row[0] or 0}')
+            lines.append(f'# HELP extraction_failure_total Failed lease extractions')
+            lines.append(f'# TYPE extraction_failure_total counter')
+            lines.append(f'extraction_failure_total {row[1] or 0}')
+            lines.append(f'# HELP avg_extraction_duration_seconds Average extraction duration')
+            lines.append(f'# TYPE avg_extraction_duration_seconds gauge')
+            lines.append(f'avg_extraction_duration_seconds {float(row[2] or 0):.3f}')
+
+        # Enrichment coverage ratio
+        enrich_data, _ = execute_query(f"""
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN validation_status IN ('ENRICHED', 'VERIFIED') THEN 1 ELSE 0 END) as enriched
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE tenant_name IS NOT NULL
+        """)
+        if enrich_data and enrich_data[0]:
+            total = int(enrich_data[0][0] or 0)
+            enriched = int(enrich_data[0][1] or 0)
+            ratio = enriched / total if total > 0 else 0.0
+            lines.append(f'# HELP enrichment_coverage_ratio Fraction of leases with enrichment')
+            lines.append(f'# TYPE enrichment_coverage_ratio gauge')
+            lines.append(f'enrichment_coverage_ratio {ratio:.4f}')
+
+        # Pending validation count
+        pending_data, _ = execute_query(f"""
+            SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE validation_status = 'NEW'
+        """)
+        if pending_data and pending_data[0]:
+            lines.append(f'# HELP pending_validation_count Leases awaiting validation')
+            lines.append(f'# TYPE pending_validation_count gauge')
+            lines.append(f'pending_validation_count {pending_data[0][0] or 0}')
+
+        # Active risk alerts (high-risk leases)
+        risk_data, _ = execute_query(f"""
+            SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
+            WHERE total_risk_score >= 7.0
+        """)
+        if risk_data and risk_data[0]:
+            lines.append(f'# HELP active_risk_alerts_count High-risk leases (score >= 7)')
+            lines.append(f'# TYPE active_risk_alerts_count gauge')
+            lines.append(f'active_risk_alerts_count {risk_data[0][0] or 0}')
+
+    except Exception as e:
+        logger.error("Metrics collection failed", extra={'error_detail': str(e)})
+        lines.append(f'# Error collecting metrics: {str(e)[:100]}')
+
+    return '\n'.join(lines) + '\n', 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 

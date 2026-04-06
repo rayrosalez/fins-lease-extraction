@@ -1,0 +1,44 @@
+-- Migration 001: Add trace_id columns to existing tables
+-- Run this in the fevm-ray-serverless workspace against ray_serverless_catalog.lease_management
+-- Safe to re-run: uses IF NOT EXISTS / TRY_ADD semantics
+
+USE CATALOG ray_serverless_catalog;
+USE SCHEMA lease_management;
+
+-- Create new audit tables (idempotent)
+CREATE TABLE IF NOT EXISTS upload_trace_map (
+    file_path STRING COMMENT 'Full volume path of the uploaded file',
+    trace_id STRING COMMENT 'UUID correlation ID generated at upload time',
+    uploaded_at TIMESTAMP COMMENT 'When the file was uploaded'
+)
+USING DELTA
+COMMENT 'Maps uploaded file paths to trace IDs for end-to-end pipeline correlation'
+TBLPROPERTIES (delta.enableChangeDataFeed = true);
+
+CREATE TABLE IF NOT EXISTS pipeline_events (
+    event_id BIGINT GENERATED ALWAYS AS IDENTITY,
+    trace_id STRING COMMENT 'UUID correlation ID linking to upload_trace_map',
+    stage STRING COMMENT 'Pipeline stage: UPLOAD, INGEST, STRUCTURE, ENRICH_LANDLORD, ENRICH_TENANT, PROMOTE',
+    status STRING COMMENT 'Event status: STARTED, COMPLETED, FAILED, RETRIED',
+    duration_ms LONG COMMENT 'Stage execution duration in milliseconds',
+    records_affected INT COMMENT 'Number of records processed in this stage',
+    error_message STRING COMMENT 'Error details if status is FAILED',
+    metadata STRING COMMENT 'JSON blob for stage-specific metrics (tokens, field counts, model info)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP() COMMENT 'When this event was recorded'
+)
+USING DELTA
+COMMENT 'Audit log of all pipeline stage executions for monitoring and traceability'
+TBLPROPERTIES (
+    delta.enableChangeDataFeed = true,
+    delta.autoOptimize.optimizeWrite = true
+);
+
+-- Add trace_id to existing medallion tables
+ALTER TABLE raw_leases
+  ADD COLUMN IF NOT EXISTS trace_id STRING COMMENT 'UUID correlation ID for end-to-end pipeline tracing';
+
+ALTER TABLE bronze_leases
+  ADD COLUMN IF NOT EXISTS trace_id STRING COMMENT 'UUID correlation ID inherited from raw_leases';
+
+ALTER TABLE silver_leases
+  ADD COLUMN IF NOT EXISTS trace_id STRING COMMENT 'UUID correlation ID inherited from bronze_leases';
