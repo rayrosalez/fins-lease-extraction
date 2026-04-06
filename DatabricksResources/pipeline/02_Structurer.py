@@ -28,7 +28,7 @@ INSERT INTO {CATALOG}.{SCHEMA}.bronze_leases (
   property_address, property_street_address, property_city, property_state,
   property_zip_code, property_country,
   raw_json_payload, is_fully_extracted, validation_status,
-  trace_id
+  trace_id, field_confidence
 )
 WITH agent_raw_output AS (
   SELECT
@@ -109,7 +109,29 @@ SELECT
     ELSE TRUE
   END as is_fully_extracted,
   'NEW' as validation_status,
-  source_trace_id as trace_id
+  source_trace_id as trace_id,
+  -- Per-field extraction confidence: 1.0 = present, 0.5 = hedged/estimated, 0.0 = missing
+  CONCAT('{{',
+    '"landlord_name":', CASE WHEN r.landlord.name IS NULL THEN '0.0' WHEN LOWER(raw_json) LIKE '%"name"%unclear%' OR LOWER(raw_json) LIKE '%"name"%unknown%' THEN '0.5' ELSE '1.0' END, ',',
+    '"landlord_address":', CASE WHEN r.landlord.address IS NULL THEN '0.0' WHEN LOWER(r.landlord.address) RLIKE '(unknown|n/a|not specified|unclear)' THEN '0.5' ELSE '1.0' END, ',',
+    '"tenant_name":', CASE WHEN r.tenant.name IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"tenant_address":', CASE WHEN r.tenant.address IS NULL THEN '0.0' WHEN LOWER(r.tenant.address) RLIKE '(unknown|n/a|not specified|unclear)' THEN '0.5' ELSE '1.0' END, ',',
+    '"industry_sector":', CASE WHEN r.tenant.industry_sector IS NULL THEN '0.0' WHEN LOWER(r.tenant.industry_sector) RLIKE '(unknown|n/a|other|general)' THEN '0.5' ELSE '1.0' END, ',',
+    '"suite_number":', CASE WHEN r.lease_details.suite_number IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"lease_type":', CASE WHEN r.lease_details.lease_type IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"commencement_date":', CASE WHEN r.lease_details.commencement_date IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"expiration_date":', CASE WHEN r.lease_details.expiration_date IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"term_months":', CASE WHEN r.lease_details.term_months IS NULL THEN '0.0' WHEN r.lease_details.term_months = 0 THEN '0.3' ELSE '1.0' END, ',',
+    '"rentable_square_feet":', CASE WHEN r.lease_details.rentable_square_feet IS NULL THEN '0.0' WHEN r.lease_details.rentable_square_feet = 0 THEN '0.3' ELSE '1.0' END, ',',
+    '"annual_base_rent":', CASE WHEN r.financial_terms.annual_base_rent IS NULL THEN '0.0' WHEN r.financial_terms.annual_base_rent = 0 THEN '0.3' ELSE '1.0' END, ',',
+    '"base_rent_psf":', CASE WHEN r.financial_terms.base_rent_psf IS NULL THEN '0.0' WHEN r.financial_terms.base_rent_psf = 0 THEN '0.3' ELSE '1.0' END, ',',
+    '"annual_escalation_pct":', CASE WHEN r.financial_terms.annual_escalation_pct IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"renewal_notice_days":', CASE WHEN r.risk_and_options.renewal_notice_days IS NULL THEN '0.0' WHEN r.risk_and_options.renewal_notice_days = 0 THEN '0.3' ELSE '1.0' END, ',',
+    '"guarantor":', CASE WHEN r.risk_and_options.guarantor IS NULL THEN '0.0' WHEN LOWER(r.risk_and_options.guarantor) RLIKE '(none|n/a|not specified|unknown)' THEN '0.5' ELSE '1.0' END, ',',
+    '"property_city":', CASE WHEN r.property_location.city IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"property_state":', CASE WHEN r.property_location.state IS NULL THEN '0.0' ELSE '1.0' END, ',',
+    '"property_zip_code":', CASE WHEN r.property_location.zip_code IS NULL THEN '0.0' ELSE '1.0' END,
+  '}}') as field_confidence
 FROM parsed_results
 """
 
