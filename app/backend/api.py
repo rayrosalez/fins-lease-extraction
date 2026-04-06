@@ -9,6 +9,33 @@ import requests
 import json
 import time
 import subprocess
+import uuid
+import logging
+
+# Structured logging setup
+class JsonFormatter(logging.Formatter):
+    def format(self, record):
+        log_entry = {
+            'timestamp': self.formatTime(record),
+            'level': record.levelname,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno,
+        }
+        # Include extra fields (trace_id, duration_ms, etc.)
+        for key in ('trace_id', 'duration_ms', 'stage', 'status', 'records', 'error_detail'):
+            if hasattr(record, key):
+                log_entry[key] = getattr(record, key)
+        return json.dumps(log_entry)
+
+logger = logging.getLogger('lease_extraction')
+logger.setLevel(logging.INFO)
+_handler = logging.StreamHandler()
+_handler.setFormatter(JsonFormatter())
+logger.addHandler(_handler)
+# Prevent duplicate logs from Flask's default logger
+logger.propagate = False
 
 load_dotenv()
 
@@ -32,18 +59,19 @@ SCHEMA = os.getenv('DATABRICKS_SCHEMA', 'lease_management')
 WAREHOUSE_ID = os.getenv('DATABRICKS_WAREHOUSE_ID')
 VOLUME_NAME = os.getenv('DATABRICKS_VOLUME', 'raw_lease_docs')
 
-# Print configuration on startup
-print(f"\n{'='*60}")
-print(f"API Configuration:")
-print(f"CATALOG: {CATALOG}")
-print(f"SCHEMA: {SCHEMA}")
-print(f"WAREHOUSE_ID: {WAREHOUSE_ID if WAREHOUSE_ID else 'NOT SET'}")
-print(f"VOLUME: {VOLUME_NAME}")
-print(f"DATABRICKS_HOST (original): {os.getenv('DATABRICKS_HOST', 'NOT SET')}")
-print(f"DATABRICKS_HOST (with scheme): {DATABRICKS_HOST}")
-print(f"CLAUDE_ENDPOINT_URL: {CLAUDE_ENDPOINT_URL}")
-print(f"DATABRICKS_TOKEN: {'SET' if os.getenv('DATABRICKS_TOKEN') else 'NOT SET'}")
-print(f"{'='*60}\n")
+# Log configuration on startup
+logger.info("API starting", extra={
+    'stage': 'STARTUP',
+    'status': json.dumps({
+        'catalog': CATALOG,
+        'schema': SCHEMA,
+        'warehouse_id': WAREHOUSE_ID or 'NOT SET',
+        'volume': VOLUME_NAME,
+        'host': DATABRICKS_HOST,
+        'claude_endpoint': CLAUDE_ENDPOINT_URL,
+        'token_set': bool(os.getenv('DATABRICKS_TOKEN')),
+    })
+})
 
 
 # ============================================================
@@ -293,84 +321,102 @@ def get_client():
 
 def execute_query(query, max_retries=3, retry_delay=1.0):
     """
-    Execute SQL query and return results with retry logic for Delta Lake concurrency errors
-    
-    Args:
-        query: SQL query to execute
-        max_retries: Maximum number of retry attempts (default 3)
-        retry_delay: Initial delay between retries in seconds (default 1.0)
+    Execute SQL query and return results with retry logic for Delta Lake concurrency errors.
+
+    Returns:
+        (data, error) where data is a list of rows or None on failure,
+        and error is an error string or None on success.
+        On Delta concurrency exhaustion, returns (None, error_msg) so callers
+        can distinguish a real failure from an empty result set.
     """
+    query_start = time.time()
+    query_preview = query.strip()[:120]
+
     for attempt in range(max_retries):
         try:
             if not WAREHOUSE_ID:
                 return None, "DATABRICKS_WAREHOUSE_ID environment variable is not set"
-            
+
             client, error = get_client()
             if error:
-                print(f"ERROR getting Databricks client: {error}")
+                logger.error("Databricks client error", extra={'error_detail': error})
                 return None, error
-            
+
             if attempt > 0:
-                print(f"Retry attempt {attempt + 1}/{max_retries} for query")
+                logger.warning("Retrying query", extra={'status': f'attempt {attempt + 1}/{max_retries}'})
             else:
-                print(f"Executing query: {query[:100]}...")
-            
+                logger.info("Executing query", extra={'status': query_preview})
+
             statement = client.statement_execution.execute_statement(
                 warehouse_id=WAREHOUSE_ID,
                 statement=query,
                 wait_timeout="30s"
             )
-            
+
             if statement.status.state == StatementState.SUCCEEDED:
+                duration = int((time.time() - query_start) * 1000)
+                row_count = len(statement.result.data_array) if statement.result and statement.result.data_array else 0
+                logger.info("Query succeeded", extra={'duration_ms': duration, 'records': row_count})
                 if statement.result and statement.result.data_array:
-                    print(f"Query succeeded, returned {len(statement.result.data_array)} rows")
                     return statement.result.data_array, None
-                print("Query succeeded but returned no data")
                 return [], None
             else:
                 error_msg = f"Query failed: {statement.status.state}"
                 if statement.status.error:
                     error_msg += f" - {statement.status.error.message}"
-                    
-                    # Check if this is a Delta Lake concurrency error
+
                     if "ConcurrentAppendException" in str(statement.status.error.message) or \
                        "DELTA_CONCURRENT" in str(statement.status.error.message):
-                        # This is a retryable error
                         if attempt < max_retries - 1:
-                            wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                            print(f"Delta Lake concurrency error detected, retrying in {wait_time}s...")
+                            wait_time = retry_delay * (2 ** attempt)
+                            logger.warning("Delta concurrency error, retrying", extra={
+                                'duration_ms': wait_time * 1000,
+                                'status': f'attempt {attempt + 1}/{max_retries}'
+                            })
                             time.sleep(wait_time)
-                            continue  # Retry the query
+                            continue
                         else:
-                            print(f"Max retries reached for concurrency error")
-                            # Even on last retry, check if operation might have succeeded
-                            # Return a softer error that can be handled gracefully
-                            return [], None  # Return empty result instead of error
-                
-                print(f"ERROR: {error_msg}")
+                            logger.error("Delta concurrency retries exhausted", extra={'error_detail': error_msg})
+                            return None, f"Concurrency error after {max_retries} retries: {error_msg}"
+
+                logger.error("Query failed", extra={'error_detail': error_msg, 'duration_ms': int((time.time() - query_start) * 1000)})
                 return None, error_msg
-                
+
         except Exception as e:
-            error_msg = f"Exception executing query: {str(e)}\n{traceback.format_exc()}"
-            print(error_msg)
-            
-            # Check if this is a concurrency exception
-            if "ConcurrentAppendException" in str(e) or "DELTA_CONCURRENT" in str(e):
+            error_msg = str(e)
+            logger.error("Query exception", extra={'error_detail': f"{error_msg}\n{traceback.format_exc()}"})
+
+            if "ConcurrentAppendException" in error_msg or "DELTA_CONCURRENT" in error_msg:
                 if attempt < max_retries - 1:
                     wait_time = retry_delay * (2 ** attempt)
-                    print(f"Delta Lake concurrency exception, retrying in {wait_time}s...")
+                    logger.warning("Delta concurrency exception, retrying", extra={'duration_ms': wait_time * 1000})
                     time.sleep(wait_time)
                     continue
                 else:
-                    # On last attempt, return empty result for concurrency errors
-                    # The operation likely succeeded despite the error
-                    print(f"Concurrency error on final retry - operation may have succeeded")
-                    return [], None
-            
-            return None, str(e)
-    
-    # Should not reach here, but just in case
+                    logger.error("Delta concurrency retries exhausted (exception)", extra={'error_detail': error_msg})
+                    return None, f"Concurrency error after {max_retries} retries: {error_msg}"
+
+            return None, error_msg
+
     return None, "Max retries exceeded"
+
+def log_pipeline_event(trace_id, stage, status, duration_ms=None, records_affected=None, error_message=None, metadata=None):
+    """Insert a row into pipeline_events for audit/monitoring"""
+    try:
+        duration_val = f"{int(duration_ms)}" if duration_ms is not None else "NULL"
+        records_val = f"{int(records_affected)}" if records_affected is not None else "NULL"
+        error_val = f"'{error_message.replace(chr(39), chr(39)+chr(39))}'" if error_message else "NULL"
+        meta_val = f"'{json.dumps(metadata).replace(chr(39), chr(39)+chr(39))}'" if metadata else "NULL"
+        query = f"""
+        INSERT INTO {CATALOG}.{SCHEMA}.pipeline_events (trace_id, stage, status, duration_ms, records_affected, error_message, metadata)
+        VALUES ('{trace_id}', '{stage}', '{status}', {duration_val}, {records_val}, {error_val}, {meta_val})
+        """
+        _, err = execute_query(query)
+        if err:
+            print(f"Warning: Failed to log pipeline event: {err}")
+    except Exception as e:
+        print(f"Warning: Exception logging pipeline event: {e}")
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -380,8 +426,88 @@ def health_check():
 
 @app.route('/metrics', methods=['GET'])
 def metrics():
-    """Metrics endpoint for Databricks Apps monitoring"""
-    return '', 200
+    """Prometheus-style metrics endpoint for monitoring integration"""
+    lines = []
+
+    try:
+        # Upload and extraction counters
+        upload_data, _ = execute_query(f"""
+            SELECT
+                COUNT(*) as total_uploads,
+                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as success_uploads,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed_uploads,
+                AVG(duration_ms) / 1000.0 as avg_upload_duration_s
+            FROM {CATALOG}.{SCHEMA}.pipeline_events
+            WHERE stage = 'UPLOAD'
+        """)
+        if upload_data and upload_data[0]:
+            row = upload_data[0]
+            lines.append(f'# HELP lease_uploads_total Total lease document uploads')
+            lines.append(f'# TYPE lease_uploads_total counter')
+            lines.append(f'lease_uploads_total {row[0] or 0}')
+
+        # Extraction success/failure from STRUCTURE stage
+        struct_data, _ = execute_query(f"""
+            SELECT
+                SUM(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END) as successes,
+                SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failures,
+                AVG(duration_ms) / 1000.0 as avg_duration_s
+            FROM {CATALOG}.{SCHEMA}.pipeline_events
+            WHERE stage = 'STRUCTURE'
+        """)
+        if struct_data and struct_data[0]:
+            row = struct_data[0]
+            lines.append(f'# HELP extraction_success_total Successful lease extractions')
+            lines.append(f'# TYPE extraction_success_total counter')
+            lines.append(f'extraction_success_total {row[0] or 0}')
+            lines.append(f'# HELP extraction_failure_total Failed lease extractions')
+            lines.append(f'# TYPE extraction_failure_total counter')
+            lines.append(f'extraction_failure_total {row[1] or 0}')
+            lines.append(f'# HELP avg_extraction_duration_seconds Average extraction duration')
+            lines.append(f'# TYPE avg_extraction_duration_seconds gauge')
+            lines.append(f'avg_extraction_duration_seconds {float(row[2] or 0):.3f}')
+
+        # Enrichment coverage ratio
+        enrich_data, _ = execute_query(f"""
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN validation_status IN ('ENRICHED', 'VERIFIED') THEN 1 ELSE 0 END) as enriched
+            FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE tenant_name IS NOT NULL
+        """)
+        if enrich_data and enrich_data[0]:
+            total = int(enrich_data[0][0] or 0)
+            enriched = int(enrich_data[0][1] or 0)
+            ratio = enriched / total if total > 0 else 0.0
+            lines.append(f'# HELP enrichment_coverage_ratio Fraction of leases with enrichment')
+            lines.append(f'# TYPE enrichment_coverage_ratio gauge')
+            lines.append(f'enrichment_coverage_ratio {ratio:.4f}')
+
+        # Pending validation count
+        pending_data, _ = execute_query(f"""
+            SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.bronze_leases
+            WHERE validation_status = 'NEW'
+        """)
+        if pending_data and pending_data[0]:
+            lines.append(f'# HELP pending_validation_count Leases awaiting validation')
+            lines.append(f'# TYPE pending_validation_count gauge')
+            lines.append(f'pending_validation_count {pending_data[0][0] or 0}')
+
+        # Active risk alerts (high-risk leases)
+        risk_data, _ = execute_query(f"""
+            SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.gold_lease_risk_scores
+            WHERE total_risk_score >= 7.0
+        """)
+        if risk_data and risk_data[0]:
+            lines.append(f'# HELP active_risk_alerts_count High-risk leases (score >= 7)')
+            lines.append(f'# TYPE active_risk_alerts_count gauge')
+            lines.append(f'active_risk_alerts_count {risk_data[0][0] or 0}')
+
+    except Exception as e:
+        logger.error("Metrics collection failed", extra={'error_detail': str(e)})
+        lines.append(f'# Error collecting metrics: {str(e)[:100]}')
+
+    return '\n'.join(lines) + '\n', 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 
@@ -426,7 +552,7 @@ def get_portfolio_kpis():
         
         data, error = execute_query(query)
         if error:
-            print(f"ERROR in get_portfolio_kpis: {error}")
+            logger.error('in get_portfolio_kpis', extra={'error_detail': error})
             return jsonify({'error': error}), 500
         
         if data and len(data) > 0:
@@ -616,11 +742,14 @@ def upload_file():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        print(f"Uploading file: {file.filename}")
-        
+        # Generate trace_id for end-to-end pipeline tracing
+        trace_id = str(uuid.uuid4())
+        upload_start = time.time()
+        logger.info("Upload started", extra={'trace_id': trace_id, 'status': file.filename})
+
         # Read file content
         file_content = file.read()
-        print(f"File size: {len(file_content)} bytes")
+        logger.info("File read", extra={'trace_id': trace_id, 'records': len(file_content)})
         
         # Get Databricks client
         client, error = get_client()
@@ -629,8 +758,8 @@ def upload_file():
         
         # Upload to Databricks volume
         volume_path = f"/Volumes/{CATALOG}/{SCHEMA}/{VOLUME_NAME}"
-        print(f"Volume path: {volume_path}")
-        
+        logger.info("Uploading to volume", extra={'trace_id': trace_id, 'status': volume_path})
+
         from utils import upload_to_volume
         success, file_path, error = upload_to_volume(
             client,
@@ -638,17 +767,25 @@ def upload_file():
             file.filename,
             volume_path
         )
-        
+
         if success:
-            print(f"File uploaded successfully: {file_path}")
+            logger.info("File uploaded to volume", extra={'trace_id': trace_id, 'status': file_path})
+
+            # Register trace_id mapping so pipeline stages can correlate this upload
+            trace_query = f"""
+            INSERT INTO {CATALOG}.{SCHEMA}.upload_trace_map (file_path, trace_id, uploaded_at)
+            VALUES ('{file_path.replace("'", "''")}', '{trace_id}', CURRENT_TIMESTAMP())
+            """
+            _, trace_err = execute_query(trace_query)
+            if trace_err:
+                logger.warning("Failed to register trace_id mapping", extra={'trace_id': trace_id, 'error_detail': trace_err})
 
             # Trigger ingestion job (steps 1-2 only: ingest + extract)
             # Records land as NEW in bronze_leases for user review
             import sys as _sys
             ingest_job_id = os.getenv('INGEST_JOB_ID') or os.getenv('PIPELINE_JOB_ID')
             pipeline_triggered = False
-            print(f"INGEST_JOB_ID env: {os.getenv('INGEST_JOB_ID')}, PIPELINE_JOB_ID env: {os.getenv('PIPELINE_JOB_ID')}, using: {ingest_job_id}")
-            _sys.stdout.flush()
+            logger.info("Job trigger config", extra={'trace_id': trace_id, 'status': f'ingest={os.getenv("INGEST_JOB_ID")}, pipeline={os.getenv("PIPELINE_JOB_ID")}, using={ingest_job_id}'})
             if ingest_job_id:
                 try:
                     result = client.api_client.do(
@@ -656,27 +793,34 @@ def upload_file():
                         "/api/2.1/jobs/run-now",
                         body={"job_id": int(ingest_job_id)},
                     )
-                    print(f"Ingestion job triggered: {result}")
-                    _sys.stdout.flush()
+                    logger.info("Ingestion job triggered", extra={'trace_id': trace_id, 'status': str(result)})
                     pipeline_triggered = True
                 except Exception as job_err:
-                    print(f"Warning: Failed to trigger ingestion job: {job_err}")
-                    _sys.stdout.flush()
-                    traceback.print_exc()
+                    logger.warning("Failed to trigger ingestion job", extra={'trace_id': trace_id, 'error_detail': str(job_err)})
+
+            upload_duration = int((time.time() - upload_start) * 1000)
+            log_pipeline_event(
+                trace_id, 'UPLOAD', 'COMPLETED',
+                duration_ms=upload_duration,
+                records_affected=1,
+                metadata={'filename': file.filename, 'file_size_bytes': len(file_content), 'pipeline_triggered': pipeline_triggered}
+            )
 
             return jsonify({
                 'success': True,
                 'file_path': file_path,
+                'trace_id': trace_id,
                 'message': 'File uploaded successfully',
                 'pipeline_triggered': pipeline_triggered
             })
         else:
-            print(f"Upload failed: {error}")
+            upload_duration = int((time.time() - upload_start) * 1000)
+            log_pipeline_event(trace_id, 'UPLOAD', 'FAILED', duration_ms=upload_duration, error_message=error)
+            logger.error("Upload failed", extra={'trace_id': trace_id, 'error_detail': error})
             return jsonify({'error': error}), 500
-            
+
     except Exception as e:
-        error_msg = f"Exception in upload_file: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
+        logger.error("Upload exception", extra={'error_detail': f"{str(e)}\n{traceback.format_exc()}"})
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/check-processing', methods=['POST'])
@@ -693,7 +837,7 @@ def check_processing():
         # Escape single quotes in filename for SQL LIKE clause
         escaped_filename = filename.replace("'", "''")
         
-        print(f"Checking processing status for file: {filename}")
+        logger.info("Checking processing status", extra={'status': filename})
         
         # First check raw_leases table to see if file was ingested
         raw_query = f"""
@@ -709,18 +853,17 @@ def check_processing():
         raw_data, raw_error = execute_query(raw_query)
         
         if raw_error:
-            print(f"Error checking raw_leases: {raw_error}")
+            logger.error("Error checking raw_leases", extra={'error_detail': raw_error})
             return jsonify({'processed': False, 'error': f'Error checking raw ingestion: {raw_error}'}), 500
-        
+
         if not raw_data or len(raw_data) == 0:
-            print(f"File not yet ingested to raw_leases")
+            logger.info("File not yet ingested to raw_leases", extra={'status': filename})
             return jsonify({'processed': False, 'message': 'File not yet ingested'})
-        
+
         # File found in raw_leases, now check if it's been extracted to bronze
-        # Get the ingested_at timestamp from raw to match with uploaded_at in bronze
         raw_ingested_at = raw_data[0][1]  # ingested_at from raw_leases
-        
-        print(f"Found in raw_leases with ingested_at: {raw_ingested_at}")
+
+        logger.info("Found in raw_leases", extra={'status': f'ingested_at={raw_ingested_at}'})
         
         # Try multiple strategies to find the bronze record:
         # Strategy 1: Exact timestamp match (with tolerance for milliseconds)
@@ -882,7 +1025,7 @@ def validate_record():
         _, update_error = execute_query(update_query)
         
         if update_error:
-            print(f"ERROR updating bronze layer: {update_error}")
+            logger.error('updating bronze layer', extra={'error_detail': update_error})
             return jsonify({'error': f'Failed to update bronze layer: {update_error}'}), 500
         
         # Now promote to silver layer
@@ -917,7 +1060,7 @@ def validate_record():
         bronze_data, select_error = execute_query(select_query)
         
         if select_error or not bronze_data or len(bronze_data) == 0:
-            print(f"ERROR retrieving updated bronze record: {select_error}")
+            logger.error('retrieving updated bronze record', extra={'error_detail': select_error})
             return jsonify({'error': 'Failed to retrieve updated record'}), 500
         
         row = bronze_data[0]
@@ -1000,7 +1143,7 @@ def validate_record():
         _, silver_error = execute_query(silver_insert)
         
         if silver_error:
-            print(f"ERROR promoting to silver layer: {silver_error}")
+            logger.error('promoting to silver layer', extra={'error_detail': silver_error})
             return jsonify({
                 'success': True,
                 'message': 'Record validated in bronze layer but failed to promote to silver',
@@ -1070,7 +1213,7 @@ def get_new_records():
         
         data, error = execute_query(query)
         if error:
-            print(f"ERROR in get_new_records: {error}")
+            logger.error('in get_new_records', extra={'error_detail': error})
             return jsonify({'error': error}), 500
         
         records = []
@@ -1155,7 +1298,7 @@ def validate_multiple_records():
                     _, update_error = execute_query(update_query)
                     
                     if update_error:
-                        print(f"ERROR updating bronze layer for {extraction_id}: {update_error}")
+                        logger.error('updating bronze layer for {extraction_id}', extra={'error_detail': update_error})
                         failed_records.append({'extraction_id': extraction_id, 'error': update_error})
                         continue
                 else:
@@ -1167,7 +1310,7 @@ def validate_multiple_records():
                     """
                     _, update_error = execute_query(update_query)
                     if update_error:
-                        print(f"ERROR updating bronze layer for {extraction_id}: {update_error}")
+                        logger.error('updating bronze layer for {extraction_id}', extra={'error_detail': update_error})
                         failed_records.append({'extraction_id': extraction_id, 'error': update_error})
                         continue
                 
@@ -1202,7 +1345,7 @@ def validate_multiple_records():
                 bronze_data, select_error = execute_query(select_query)
                 
                 if select_error or not bronze_data or len(bronze_data) == 0:
-                    print(f"ERROR retrieving updated bronze record for {extraction_id}: {select_error}")
+                    logger.error('retrieving updated bronze record for {extraction_id}', extra={'error_detail': select_error})
                     failed_records.append({'extraction_id': extraction_id, 'error': 'Failed to retrieve updated record'})
                     continue
                 
@@ -1285,7 +1428,7 @@ def validate_multiple_records():
                 _, silver_error = execute_query(silver_insert)
                 
                 if silver_error:
-                    print(f"ERROR promoting to silver layer for {extraction_id}: {silver_error}")
+                    logger.error('promoting to silver layer for {extraction_id}', extra={'error_detail': silver_error})
                     failed_records.append({'extraction_id': extraction_id, 'error': f'Silver promotion failed: {silver_error}'})
                     continue
                 
@@ -1941,7 +2084,7 @@ def validate_landlord_enrichment():
         _, error = execute_query(merge_query)
         
         if error:
-            print(f"ERROR inserting landlord: {error}")
+            logger.error('inserting landlord', extra={'error_detail': error})
             return jsonify({'error': f'Failed to save landlord: {error}'}), 500
         
         print(f"Successfully saved landlord: {landlord_id}")
@@ -2059,7 +2202,7 @@ def validate_tenant_enrichment():
         _, error = execute_query(merge_query)
         
         if error:
-            print(f"ERROR inserting tenant: {error}")
+            logger.error('inserting tenant', extra={'error_detail': error})
             return jsonify({'error': f'Failed to save tenant: {error}'}), 500
         
         print(f"Successfully saved tenant: {tenant_id}")
@@ -2147,7 +2290,7 @@ def get_all_landlords():
         
         data, error = execute_query(query)
         if error:
-            print(f"ERROR in get_all_landlords: {error}")
+            logger.error('in get_all_landlords', extra={'error_detail': error})
             return jsonify({'error': error}), 500
         
         landlords = []
@@ -2228,7 +2371,7 @@ def get_all_tenants():
         
         data, error = execute_query(query)
         if error:
-            print(f"ERROR in get_all_tenants: {error}")
+            logger.error('in get_all_tenants', extra={'error_detail': error})
             return jsonify({'error': error}), 500
         
         tenants = []

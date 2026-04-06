@@ -44,6 +44,9 @@ CREATE TABLE IF NOT EXISTS silver_leases (
     raw_document_path STRING COMMENT 'Path to source PDF in Unity Catalog Volumes',
     uploaded_at TIMESTAMP COMMENT 'When the document was originally uploaded',
     
+    -- Traceability
+    trace_id STRING COMMENT 'UUID correlation ID inherited from bronze_leases',
+
     -- Metadata
     updated_at TIMESTAMP COMMENT 'Last update timestamp'
 ) 

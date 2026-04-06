@@ -27,13 +27,15 @@ INSERT INTO {CATALOG}.{SCHEMA}.bronze_leases (
   annual_escalation_pct, renewal_notice_days, guarantor,
   property_address, property_street_address, property_city, property_state,
   property_zip_code, property_country,
-  raw_json_payload, is_fully_extracted, validation_status
+  raw_json_payload, is_fully_extracted, validation_status,
+  trace_id
 )
 WITH agent_raw_output AS (
   SELECT
     raw.file_path,
     raw.raw_parsed_json AS input,
     raw.ingested_at AS source_uploaded_at,
+    raw.trace_id AS source_trace_id,
     ai_query(
       '{ENDPOINT}',
       CONCAT(
@@ -61,6 +63,7 @@ WITH agent_raw_output AS (
 parsed_results AS (
   SELECT
     source_uploaded_at,
+    source_trace_id,
     from_json(
       REGEXP_REPLACE(REGEXP_REPLACE(CAST(response.result AS STRING), '^```(?:json)?\\\\s*', ''), '\\\\s*```$', ''),
       '
@@ -105,14 +108,37 @@ SELECT
     WHEN r.tenant.name IS NULL OR r.financial_terms.annual_base_rent IS NULL THEN FALSE
     ELSE TRUE
   END as is_fully_extracted,
-  'NEW' as validation_status
+  'NEW' as validation_status,
+  source_trace_id as trace_id
 FROM parsed_results
 """
 
+import time as _time
+_struct_start = _time.time()
 result = spark.sql(sql)
+_struct_duration = int((_time.time() - _struct_start) * 1000)
 print(f"Structuring complete. Rows inserted: {{result.first()[0] if result.first() else 'check bronze_leases'}}")
 
 # COMMAND ----------
 
 count = spark.sql(f"SELECT COUNT(*) as cnt FROM {CATALOG}.{SCHEMA}.bronze_leases").first()["cnt"]
 print(f"Total bronze_leases records: {count}")
+
+# COMMAND ----------
+
+# Log pipeline events for structured records
+EVENTS_TABLE = f"{CATALOG}.{SCHEMA}.pipeline_events"
+structured_traces = spark.sql(f"""
+    SELECT trace_id, COUNT(*) as cnt
+    FROM {CATALOG}.{SCHEMA}.bronze_leases
+    WHERE trace_id IS NOT NULL AND validation_status = 'NEW'
+    GROUP BY trace_id
+""").collect()
+
+for row in structured_traces:
+    if row.trace_id:
+        spark.sql(f"""
+            INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, records_affected, metadata)
+            VALUES ('{row.trace_id}', 'STRUCTURE', 'COMPLETED', {_struct_duration}, {row.cnt},
+                    '{{"endpoint": "{ENDPOINT}"}}')
+        """)

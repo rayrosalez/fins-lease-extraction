@@ -16,6 +16,9 @@ print(f"Schema:  {SCHEMA}")
 
 # COMMAND ----------
 
+import time as _time
+_promote_start = _time.time()
+
 spark.sql(f"""
 MERGE INTO {CATALOG}.{SCHEMA}.silver_leases AS target
 USING (
@@ -71,6 +74,7 @@ USING (
         CURRENT_TIMESTAMP() as verified_at,
         NULL as raw_document_path,
         uploaded_at,
+        trace_id,
         CURRENT_TIMESTAMP() as updated_at
 
     FROM {CATALOG}.{SCHEMA}.bronze_leases
@@ -103,5 +107,22 @@ SELECT 'Tenants', COUNT(*) FROM {CATALOG}.{SCHEMA}.tenants
 """)
 
 print("Pipeline Summary:")
-for row in results.collect():
+summary_data = results.collect()
+for row in summary_data:
     print(f"  {row['layer']}: {row['cnt']}")
+
+# Log promotion events per trace_id
+_promote_duration = int((_time.time() - _promote_start) * 1000)
+EVENTS_TABLE = f"{CATALOG}.{SCHEMA}.pipeline_events"
+_promo_traces = spark.sql(f"""
+    SELECT trace_id, COUNT(*) as cnt
+    FROM {CATALOG}.{SCHEMA}.silver_leases
+    WHERE trace_id IS NOT NULL
+    GROUP BY trace_id
+""").collect()
+for row in _promo_traces:
+    if row.trace_id:
+        spark.sql(f"""
+            INSERT INTO {EVENTS_TABLE} (trace_id, stage, status, duration_ms, records_affected)
+            VALUES ('{row.trace_id}', 'PROMOTE', 'COMPLETED', {_promote_duration}, {row.cnt})
+        """)
