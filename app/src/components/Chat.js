@@ -1,14 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSend, FiDatabase, FiTrendingUp, FiSearch, FiUser, FiCpu } from 'react-icons/fi';
+import { FiSend, FiDatabase, FiTrendingUp, FiSearch, FiUser, FiCpu, FiCode } from 'react-icons/fi';
 import './Chat.css';
 
 const Chat = () => {
+  const [sessionId] = useState(() => `session_${Date.now()}`);
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'assistant',
-      content: 'Hello! I\'m your Lease Portfolio AI assistant. I can help you analyze your lease data, answer questions about tenants, expiration dates, rent pricing, and more. What would you like to know?',
+      content: 'Hello! I\'m your Lease Portfolio AI assistant powered by Databricks Genie. Ask me anything about your lease data — tenants, expirations, rent, risk scores, and more.',
       timestamp: new Date()
     }
   ]);
@@ -68,7 +69,7 @@ const Chat = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: inputValue })
+        body: JSON.stringify({ query: inputValue, session_id: sessionId })
       });
 
       const data = await response.json();
@@ -78,6 +79,7 @@ const Chat = () => {
         type: 'assistant',
         content: data.response || data.error || 'Sorry, I encountered an error processing your request.',
         data: data.data || null,
+        sql: data.sql || null,
         timestamp: new Date()
       };
 
@@ -158,7 +160,40 @@ const Chat = () => {
                       </span>
                     </div>
                     <div className="message-text">{message.content}</div>
-                    {message.data && (
+                    {message.sql && (
+                      <details className="message-sql">
+                        <summary><FiCode size={14} /> View SQL</summary>
+                        <pre>{message.sql}</pre>
+                      </details>
+                    )}
+                    {message.data && Array.isArray(message.data) && message.data.length > 0 && (
+                      <div className="message-data">
+                        <div className="data-table-wrapper">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                {Object.keys(message.data[0]).map(col => (
+                                  <th key={col}>{col.replace(/_/g, ' ')}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {message.data.slice(0, 20).map((row, i) => (
+                                <tr key={i}>
+                                  {Object.values(row).map((val, j) => (
+                                    <td key={j}>{val != null ? String(val) : '—'}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {message.data.length > 20 && (
+                            <p className="data-truncated">Showing 20 of {message.data.length} rows</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {message.data && !Array.isArray(message.data) && (
                       <div className="message-data">
                         <pre>{JSON.stringify(message.data, null, 2)}</pre>
                       </div>

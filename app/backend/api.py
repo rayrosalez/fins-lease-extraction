@@ -1452,177 +1452,144 @@ def validate_multiple_records():
         print(error_msg)
         return jsonify({'error': str(e)}), 500
 
+GENIE_SPACE_ID = "01f13ce1f8aa10db97552280e43eef70"
+
+# Store active Genie conversations per session (simple in-memory mapping)
+_genie_conversations = {}
+
+
+def _genie_api(method, path, json_body=None):
+    """Make an authenticated request to the Genie API."""
+    client, err = get_client()
+    if err:
+        return None, f"Failed to get client: {err}"
+    api_client = client.api_client
+    if method == 'GET':
+        resp = api_client.do('GET', path)
+    else:
+        resp = api_client.do('POST', path, body=json_body)
+    return resp, None
+
+
+def _poll_genie_message(space_id, conversation_id, message_id, max_wait=60):
+    """Poll a Genie message until it completes or times out."""
+    path = f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}/messages/{message_id}"
+    start = time.time()
+    while time.time() - start < max_wait:
+        resp, err = _genie_api('GET', path)
+        if err:
+            return None, err
+        status = resp.get('status', '')
+        if status == 'COMPLETED':
+            return resp, None
+        if status in ('FAILED', 'CANCELLED'):
+            error_msg = resp.get('error', {}).get('message', 'Genie query failed')
+            return None, error_msg
+        time.sleep(2)
+    return None, "Genie query timed out"
+
+
+def _extract_genie_response(msg_resp):
+    """Extract the text answer and optional data from a completed Genie message."""
+    attachments = msg_resp.get('attachments', [])
+    text_answer = None
+    query_data = None
+    sql_query = None
+    attachment_id = None
+
+    for att in attachments:
+        if 'text' in att:
+            text_content = att['text'].get('content', '')
+            if text_content:
+                text_answer = text_content
+        if 'query' in att:
+            q = att['query']
+            sql_query = q.get('query', '')
+            attachment_id = att.get('id')
+            desc = q.get('description', '')
+            if desc and not text_answer:
+                text_answer = desc
+
+    return text_answer, sql_query, attachment_id
+
+
+def _get_genie_query_result(space_id, conversation_id, message_id, attachment_id):
+    """Fetch the actual query result rows from a Genie attachment."""
+    path = (f"/api/2.0/genie/spaces/{space_id}/conversations/{conversation_id}"
+            f"/messages/{message_id}/attachments/{attachment_id}/query-result")
+    resp, err = _genie_api('GET', path)
+    if err:
+        return None
+    columns = [col.get('name', f'col_{i}') for i, col in enumerate(resp.get('manifest', {}).get('schema', {}).get('columns', []))]
+    rows = resp.get('result', {}).get('data_array', [])
+    if columns and rows:
+        return [dict(zip(columns, row)) for row in rows[:50]]  # Limit to 50 rows
+    return None
+
+
 @app.route('/api/chat/query', methods=['POST'])
 def chat_query():
-    """Process natural language queries about lease data"""
+    """Process natural language queries about lease data using Databricks Genie."""
     try:
         data = request.json
-        query = data.get('query', '').lower()
-        
-        if not query:
+        query_text = data.get('query', '').strip()
+        session_id = data.get('session_id', 'default')
+
+        if not query_text:
             return jsonify({'error': 'No query provided'}), 400
-        
-        print(f"Processing chat query: {query}")
-        
-        # Simple keyword-based query routing
-        response = None
-        query_data = None
-        
-        # Total value / revenue queries
-        if any(word in query for word in ['total value', 'total revenue', 'total rent', 'portfolio value']):
-            sql = f"""
-            SELECT 
-                COUNT(*) as total_leases,
-                SUM(estimated_annual_rent) as total_annual_rent,
-                AVG(base_rent_psf) as avg_rent_psf,
-                SUM(square_footage) as total_sqft
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE estimated_annual_rent IS NOT NULL
-            """
-            data, error = execute_query(sql)
-            if not error and data:
-                row = data[0]
-                total_rent = float(row[1]) if row[1] else 0
-                response = f"Your portfolio has {int(row[0])} active leases with a total annual rent of ${total_rent:,.2f}. The average rent is ${float(row[2]) if row[2] else 0:.2f} per square foot across {float(row[3]) if row[3] else 0:,.0f} total square feet."
-                query_data = {
-                    'total_leases': int(row[0]),
-                    'total_annual_rent': total_rent,
-                    'avg_rent_psf': float(row[2]) if row[2] else 0,
-                    'total_sqft': float(row[3]) if row[3] else 0
-                }
-        
-        # Expiring leases
-        elif any(word in query for word in ['expiring', 'expiration', 'expire', 'ending']):
-            months = 12
-            if '6 month' in query:
-                months = 6
-            elif '12 month' in query or 'year' in query:
-                months = 12
-            elif '24 month' in query or '2 year' in query:
-                months = 24
-            
-            sql = f"""
-            SELECT 
-                tenant_name,
-                lease_end_date,
-                estimated_annual_rent,
-                DATEDIFF(lease_end_date, CURRENT_DATE()) as days_until_expiration
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE lease_end_date IS NOT NULL
-                AND DATEDIFF(lease_end_date, CURRENT_DATE()) BETWEEN 0 AND {months * 30}
-            ORDER BY lease_end_date ASC
-            LIMIT 10
-            """
-            data, error = execute_query(sql)
-            if not error and data:
-                if len(data) == 0:
-                    response = f"Good news! There are no leases expiring in the next {months} months."
-                else:
-                    leases = []
-                    for row in data:
-                        leases.append({
-                            'tenant': row[0],
-                            'expiration_date': row[1],
-                            'annual_rent': float(row[2]) if row[2] else 0,
-                            'days_remaining': int(row[3]) if row[3] else 0
-                        })
-                    response = f"There are {len(data)} leases expiring in the next {months} months. The first to expire is {data[0][0]} on {data[0][1]}, followed by {data[1][0] if len(data) > 1 else 'others'}."
-                    query_data = leases
-        
-        # Highest square footage / largest tenants
-        elif any(word in query for word in ['highest square', 'largest tenant', 'biggest', 'most space']):
-            sql = f"""
-            SELECT 
-                tenant_name,
-                square_footage,
-                estimated_annual_rent,
-                base_rent_psf
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE square_footage IS NOT NULL
-            ORDER BY square_footage DESC
-            LIMIT 5
-            """
-            data, error = execute_query(sql)
-            if not error and data:
-                tenants = []
-                for row in data:
-                    tenants.append({
-                        'tenant': row[0],
-                        'square_feet': float(row[1]) if row[1] else 0,
-                        'annual_rent': float(row[2]) if row[2] else 0,
-                        'rent_psf': float(row[3]) if row[3] else 0
-                    })
-                top_tenant = data[0]
-                response = f"The tenant with the highest square footage is {top_tenant[0]} with {float(top_tenant[1]):,.0f} square feet, paying ${float(top_tenant[2]):,.2f} annually. Here are the top 5 tenants by space."
-                query_data = tenants
-        
-        # Average rent by industry
-        elif any(word in query for word in ['average rent', 'rent by industry', 'industry sector', 'by market']):
-            sql = f"""
-            SELECT 
-                COALESCE(industry_sector, 'Unknown') as industry,
-                COUNT(*) as lease_count,
-                AVG(base_rent_psf) as avg_rent_psf,
-                AVG(estimated_annual_rent) as avg_annual_rent
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE base_rent_psf IS NOT NULL
-            GROUP BY industry_sector
-            ORDER BY avg_rent_psf DESC
-            """
-            data, error = execute_query(sql)
-            if not error and data:
-                industries = []
-                for row in data:
-                    industries.append({
-                        'industry': row[0],
-                        'lease_count': int(row[1]),
-                        'avg_rent_psf': float(row[2]) if row[2] else 0,
-                        'avg_annual_rent': float(row[3]) if row[3] else 0
-                    })
-                response = f"I found {len(data)} different industry sectors in your portfolio. The highest average rent is in {data[0][0]} at ${float(data[0][2]):.2f} per square foot, with {int(data[0][1])} leases."
-                query_data = industries
-        
-        # List all tenants
-        elif any(word in query for word in ['list tenant', 'all tenant', 'show tenant', 'who are']):
-            sql = f"""
-            SELECT 
-                tenant_name,
-                industry_sector,
-                estimated_annual_rent,
-                lease_end_date
-            FROM {CATALOG}.{SCHEMA}.silver_leases
-            WHERE tenant_name IS NOT NULL
-            ORDER BY estimated_annual_rent DESC
-            LIMIT 10
-            """
-            data, error = execute_query(sql)
-            if not error and data:
-                tenants = []
-                for row in data:
-                    tenants.append({
-                        'tenant': row[0],
-                        'industry': row[1],
-                        'annual_rent': float(row[2]) if row[2] else 0,
-                        'expiration_date': row[3]
-                    })
-                response = f"You have {len(tenants)} tenants in your portfolio (showing top 10 by rent). The largest is {data[0][0]} in the {data[0][1]} sector, paying ${float(data[0][2]):,.2f} annually."
-                query_data = tenants
-        
-        # Default response
+
+        print(f"Processing Genie chat query: {query_text}")
+
+        conversation_id = _genie_conversations.get(session_id)
+
+        if conversation_id:
+            # Continue existing conversation
+            path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages"
+            resp, err = _genie_api('POST', path, {'content': query_text})
         else:
-            response = "I can help you with questions about:\n\n" + \
-                      "• Total portfolio value and revenue\n" + \
-                      "• Leases expiring soon (next 6, 12, or 24 months)\n" + \
-                      "• Tenants with the highest square footage\n" + \
-                      "• Average rent by industry sector\n" + \
-                      "• List of all tenants\n\n" + \
-                      "Try asking something like 'What is the total value of all active leases?' or 'Show me leases expiring in the next 12 months.'"
-        
+            # Start new conversation
+            path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/start-conversation"
+            resp, err = _genie_api('POST', path, {'content': query_text})
+
+        if err:
+            return jsonify({'error': f'Genie API error: {err}'}), 500
+
+        conversation_id = resp.get('conversation_id')
+        message_id = resp.get('id') or resp.get('message_id')
+
+        if not conversation_id or not message_id:
+            return jsonify({'error': 'Failed to get conversation/message IDs from Genie'}), 500
+
+        # Store conversation for follow-ups
+        _genie_conversations[session_id] = conversation_id
+
+        # Poll for completion
+        msg_resp, poll_err = _poll_genie_message(GENIE_SPACE_ID, conversation_id, message_id)
+        if poll_err:
+            return jsonify({
+                'response': f"I wasn't able to answer that question. {poll_err}",
+                'data': None
+            })
+
+        # Extract answer
+        text_answer, sql_query, attachment_id = _extract_genie_response(msg_resp)
+
+        # Fetch query result data if available
+        query_data = None
+        if attachment_id:
+            query_data = _get_genie_query_result(GENIE_SPACE_ID, conversation_id, message_id, attachment_id)
+
+        if not text_answer and query_data:
+            text_answer = f"Here are the results ({len(query_data)} rows):"
+        elif not text_answer:
+            text_answer = "I processed your question but didn't get a clear answer. Try rephrasing?"
+
         return jsonify({
-            'response': response,
-            'data': query_data
+            'response': text_answer,
+            'data': query_data,
+            'sql': sql_query,
         })
-        
+
     except Exception as e:
         error_msg = f"Exception in chat_query: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
