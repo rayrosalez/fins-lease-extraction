@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSend, FiDatabase, FiTrendingUp, FiSearch, FiUser, FiCpu, FiCode } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +16,9 @@ const Chat = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamStatus, setStreamStatus] = useState(null);
+  const [streamThoughts, setStreamThoughts] = useState([]);
+  const [streamSql, setStreamSql] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -25,29 +28,27 @@ const Chat = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamStatus, streamThoughts, streamSql]);
 
   const sampleQuestions = [
-    {
-      icon: FiDatabase,
-      question: "What is the total value of all active leases?",
-      category: "Portfolio Overview"
-    },
-    {
-      icon: FiTrendingUp,
-      question: "Show me leases expiring in the next 12 months",
-      category: "Expiration Analysis"
-    },
-    {
-      icon: FiSearch,
-      question: "Which tenants have the highest square footage?",
-      category: "Tenant Analysis"
-    }
+    { icon: FiDatabase, question: "What is the total value of all active leases?", category: "Portfolio Overview" },
+    { icon: FiTrendingUp, question: "Show me leases expiring in the next 12 months", category: "Expiration Analysis" },
+    { icon: FiSearch, question: "Which tenants have the highest square footage?", category: "Tenant Analysis" }
   ];
 
   const handleSampleQuestion = (question) => {
     setInputValue(question);
     inputRef.current?.focus();
+  };
+
+  const PHASE_ICONS = {
+    init: '🔍',
+    analyzing: '📊',
+    sql: '⚡',
+    executing: '🗄️',
+    processing: '⚙️',
+    composing: '✍️',
+    fetching: '📥',
   };
 
   const handleSendMessage = async () => {
@@ -61,40 +62,95 @@ const Chat = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const queryText = inputValue;
     setInputValue('');
     setIsLoading(true);
+    setStreamStatus(null);
+    setStreamThoughts([]);
+    setStreamSql(null);
 
     try {
       const response = await fetch('/api/chat/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: inputValue, session_id: sessionId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: queryText, session_id: sessionId })
       });
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      const assistantMessage = {
-        id: Date.now() + 1,
-        type: 'assistant',
-        content: data.response || data.error || 'Sorry, I encountered an error processing your request.',
-        data: data.data || null,
-        sql: data.sql || null,
-        timestamp: new Date()
-      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      setMessages(prev => [...prev, assistantMessage]);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let eventType = null;
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7);
+          } else if (line.startsWith('data: ') && eventType) {
+            try {
+              const payload = JSON.parse(line.slice(6));
+              handleSSEEvent(eventType, payload);
+            } catch (e) { /* skip parse errors */ }
+            eventType = null;
+          }
+        }
+      }
     } catch (error) {
-      const errorMessage = {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'assistant',
-        content: 'Sorry, I\'m having trouble connecting to the backend. Please make sure the API server is running.',
+        content: 'Sorry, I\'m having trouble connecting to the backend.',
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
     } finally {
       setIsLoading(false);
+      setStreamStatus(null);
+      setStreamThoughts([]);
+      setStreamSql(null);
+    }
+  };
+
+  const handleSSEEvent = (eventType, payload) => {
+    switch (eventType) {
+      case 'status':
+        setStreamStatus({ message: payload.message, phase: payload.phase });
+        break;
+      case 'thought':
+        setStreamThoughts(prev => {
+          const exists = prev.find(t => t.type === payload.type);
+          if (exists) return prev;
+          return [...prev, payload];
+        });
+        break;
+      case 'sql':
+        setStreamSql(payload.query);
+        break;
+      case 'answer':
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          type: 'assistant',
+          content: payload.response,
+          data: payload.data || null,
+          sql: payload.sql || null,
+          timestamp: new Date()
+        }]);
+        break;
+      case 'error':
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          type: 'assistant',
+          content: `I wasn't able to answer that. ${payload.message}`,
+          timestamp: new Date()
+        }]);
+        break;
+      default:
+        break;
     }
   };
 
@@ -107,6 +163,12 @@ const Chat = () => {
 
   const formatTimestamp = (date) => {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
+  const THOUGHT_LABELS = {
+    understanding: 'Understanding',
+    data_sourcing: 'Data Sources',
+    steps: 'Approach',
   };
 
   return (
@@ -135,7 +197,7 @@ const Chat = () => {
         >
           <div className="messages-container">
             <AnimatePresence>
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <motion.div
                   key={message.id}
                   className={`message ${message.type}`}
@@ -145,20 +207,14 @@ const Chat = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <div className="message-avatar">
-                    {message.type === 'user' ? (
-                      <FiUser size={20} />
-                    ) : (
-                      <FiCpu size={20} />
-                    )}
+                    {message.type === 'user' ? <FiUser size={20} /> : <FiCpu size={20} />}
                   </div>
                   <div className="message-content">
                     <div className="message-header">
                       <span className="message-sender">
                         {message.type === 'user' ? 'You' : 'AI Assistant'}
                       </span>
-                      <span className="message-time">
-                        {formatTimestamp(message.timestamp)}
-                      </span>
+                      <span className="message-time">{formatTimestamp(message.timestamp)}</span>
                     </div>
                     <div className="message-text"><ReactMarkdown>{message.content}</ReactMarkdown></div>
                     {message.sql && (
@@ -214,10 +270,66 @@ const Chat = () => {
                   <FiCpu size={20} />
                 </div>
                 <div className="message-content">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                  <div className="message-header">
+                    <span className="message-sender">AI Assistant</span>
+                  </div>
+                  <div className="stream-progress">
+                    {streamStatus && (
+                      <motion.div
+                        className="stream-status"
+                        key={streamStatus.phase}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <span className="stream-icon">{PHASE_ICONS[streamStatus.phase] || '⏳'}</span>
+                        <span className="stream-message">{streamStatus.message}</span>
+                        <span className="stream-spinner" />
+                      </motion.div>
+                    )}
+
+                    {streamThoughts.length > 0 && (
+                      <motion.div
+                        className="stream-thoughts"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {streamThoughts.map((thought, i) => (
+                          <motion.div
+                            key={thought.type}
+                            className="stream-thought"
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: i * 0.1 }}
+                          >
+                            <span className="thought-label">{THOUGHT_LABELS[thought.type] || thought.type}:</span>
+                            <span className="thought-content">{thought.content}</span>
+                          </motion.div>
+                        ))}
+                      </motion.div>
+                    )}
+
+                    {streamSql && (
+                      <motion.div
+                        className="stream-sql"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        transition={{ duration: 0.4 }}
+                      >
+                        <div className="stream-sql-header">
+                          <FiCode size={14} />
+                          <span>Generated SQL</span>
+                        </div>
+                        <pre className="stream-sql-code">{streamSql}</pre>
+                      </motion.div>
+                    )}
+
+                    {!streamStatus && (
+                      <div className="typing-indicator">
+                        <span></span><span></span><span></span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -225,7 +337,7 @@ const Chat = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {messages.length <= 1 && (
+          {messages.length <= 1 && !isLoading && (
             <motion.div
               className="sample-questions-inline"
               initial={{ opacity: 0 }}
@@ -235,11 +347,7 @@ const Chat = () => {
               <p className="sample-label">Try asking:</p>
               <div className="sample-chips">
                 {sampleQuestions.map((item, index) => (
-                  <button
-                    key={index}
-                    className="sample-chip"
-                    onClick={() => handleSampleQuestion(item.question)}
-                  >
+                  <button key={index} className="sample-chip" onClick={() => handleSampleQuestion(item.question)}>
                     <item.icon size={16} />
                     <span>{item.question}</span>
                   </button>
@@ -268,9 +376,7 @@ const Chat = () => {
                 <FiSend size={20} />
               </button>
             </div>
-            <p className="input-hint">
-              Press Enter to send, Shift+Enter for new line
-            </p>
+            <p className="input-hint">Press Enter to send, Shift+Enter for new line</p>
           </div>
         </motion.div>
       </div>
@@ -279,4 +385,3 @@ const Chat = () => {
 };
 
 export default Chat;
-

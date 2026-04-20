@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
@@ -1529,71 +1529,129 @@ def _get_genie_query_result(space_id, conversation_id, message_id, attachment_id
 
 @app.route('/api/chat/query', methods=['POST'])
 def chat_query():
-    """Process natural language queries about lease data using Databricks Genie."""
-    try:
-        data = request.json
-        query_text = data.get('query', '').strip()
-        session_id = data.get('session_id', 'default')
+    """Process natural language queries about lease data using Databricks Genie with SSE streaming."""
+    data = request.json
+    query_text = data.get('query', '').strip()
+    session_id = data.get('session_id', 'default')
 
-        if not query_text:
-            return jsonify({'error': 'No query provided'}), 400
+    if not query_text:
+        return jsonify({'error': 'No query provided'}), 400
 
-        print(f"Processing Genie chat query: {query_text}")
+    def _sse_event(event_type, payload):
+        return f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
 
-        conversation_id = _genie_conversations.get(session_id)
+    def generate():
+        try:
+            yield _sse_event('status', {'message': 'Understanding your question...', 'phase': 'init'})
 
-        if conversation_id:
-            # Continue existing conversation
-            path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages"
-            resp, err = _genie_api('POST', path, {'content': query_text})
-        else:
-            # Start new conversation
-            path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/start-conversation"
-            resp, err = _genie_api('POST', path, {'content': query_text})
+            conversation_id = _genie_conversations.get(session_id)
 
-        if err:
-            return jsonify({'error': f'Genie API error: {err}'}), 500
+            if conversation_id:
+                path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages"
+                resp, err = _genie_api('POST', path, {'content': query_text})
+            else:
+                path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/start-conversation"
+                resp, err = _genie_api('POST', path, {'content': query_text})
 
-        conversation_id = resp.get('conversation_id')
-        message_id = resp.get('id') or resp.get('message_id')
+            if err:
+                yield _sse_event('error', {'message': f'Genie API error: {err}'})
+                return
 
-        if not conversation_id or not message_id:
-            return jsonify({'error': 'Failed to get conversation/message IDs from Genie'}), 500
+            conversation_id = resp.get('conversation_id')
+            message_id = resp.get('id') or resp.get('message_id')
 
-        # Store conversation for follow-ups
-        _genie_conversations[session_id] = conversation_id
+            if not conversation_id or not message_id:
+                yield _sse_event('error', {'message': 'Failed to start Genie conversation'})
+                return
 
-        # Poll for completion
-        msg_resp, poll_err = _poll_genie_message(GENIE_SPACE_ID, conversation_id, message_id)
-        if poll_err:
-            return jsonify({
-                'response': f"I wasn't able to answer that question. {poll_err}",
-                'data': None
+            _genie_conversations[session_id] = conversation_id
+
+            yield _sse_event('status', {'message': 'Analyzing lease data sources...', 'phase': 'analyzing'})
+
+            # Poll with streaming status updates
+            poll_path = f"/api/2.0/genie/spaces/{GENIE_SPACE_ID}/conversations/{conversation_id}/messages/{message_id}"
+            start = time.time()
+            max_wait = 90
+            poll_count = 0
+            status_messages = [
+                (4, 'Generating SQL query...', 'sql'),
+                (10, 'Executing query against Unity Catalog...', 'executing'),
+                (20, 'Processing results...', 'processing'),
+                (35, 'Composing answer...', 'composing'),
+            ]
+            next_status_idx = 0
+
+            while time.time() - start < max_wait:
+                resp, err = _genie_api('GET', poll_path)
+                if err:
+                    yield _sse_event('error', {'message': f'Polling error: {err}'})
+                    return
+
+                status = resp.get('status', '')
+                elapsed = time.time() - start
+
+                # Send progressive status updates
+                while next_status_idx < len(status_messages) and elapsed >= status_messages[next_status_idx][0]:
+                    _, msg, phase = status_messages[next_status_idx]
+                    yield _sse_event('status', {'message': msg, 'phase': phase})
+                    next_status_idx += 1
+
+                # Stream Genie's thinking if available
+                attachments = resp.get('attachments', [])
+                for att in attachments:
+                    if 'query' in att:
+                        q = att['query']
+                        sql = q.get('query', '')
+                        if sql:
+                            yield _sse_event('sql', {'query': sql})
+                            # Also stream thoughts
+                            for thought_key in ['understanding', 'data_sourcing', 'steps']:
+                                thought = q.get(thought_key)
+                                if thought:
+                                    yield _sse_event('thought', {'type': thought_key, 'content': thought})
+
+                if status == 'COMPLETED':
+                    break
+                if status in ('FAILED', 'CANCELLED'):
+                    error_msg = resp.get('error', {}).get('message', 'Genie query failed')
+                    yield _sse_event('error', {'message': error_msg})
+                    return
+
+                poll_count += 1
+                time.sleep(2)
+            else:
+                yield _sse_event('error', {'message': 'Query timed out after 90 seconds'})
+                return
+
+            # Extract final answer
+            text_answer, sql_query, attachment_id = _extract_genie_response(resp)
+
+            # Fetch query result data
+            query_data = None
+            if attachment_id:
+                yield _sse_event('status', {'message': 'Fetching result data...', 'phase': 'fetching'})
+                query_data = _get_genie_query_result(GENIE_SPACE_ID, conversation_id, message_id, attachment_id)
+
+            if not text_answer and query_data:
+                text_answer = f"Here are the results ({len(query_data)} rows):"
+            elif not text_answer:
+                text_answer = "I processed your question but didn't get a clear answer. Try rephrasing?"
+
+            # Stream the final answer
+            yield _sse_event('answer', {
+                'response': text_answer,
+                'data': query_data,
+                'sql': sql_query,
             })
 
-        # Extract answer
-        text_answer, sql_query, attachment_id = _extract_genie_response(msg_resp)
+        except Exception as e:
+            print(f"SSE error: {str(e)}\n{traceback.format_exc()}")
+            yield _sse_event('error', {'message': str(e)})
 
-        # Fetch query result data if available
-        query_data = None
-        if attachment_id:
-            query_data = _get_genie_query_result(GENIE_SPACE_ID, conversation_id, message_id, attachment_id)
-
-        if not text_answer and query_data:
-            text_answer = f"Here are the results ({len(query_data)} rows):"
-        elif not text_answer:
-            text_answer = "I processed your question but didn't get a clear answer. Try rephrasing?"
-
-        return jsonify({
-            'response': text_answer,
-            'data': query_data,
-            'sql': sql_query,
-        })
-
-    except Exception as e:
-        error_msg = f"Exception in chat_query: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)
-        return jsonify({'error': str(e)}), 500
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+    })
 
 @app.route('/api/records/delete', methods=['POST'])
 def delete_records():
