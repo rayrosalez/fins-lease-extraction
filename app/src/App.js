@@ -5,6 +5,7 @@ import Portfolio from './components/Portfolio';
 import Chat from './components/Chat';
 import Upload from './components/Upload';
 import Forecasting from './components/Forecasting';
+import CriticalDateAlerts from './components/CriticalDateAlerts';
 import { FiHelpCircle, FiX, FiMail } from 'react-icons/fi';
 
 function App() {
@@ -49,7 +50,13 @@ function App() {
               Upload & Validate
               {processingJob && <span className="nav-processing-dot" title="Processing a document..." />}
             </button>
-            <button 
+            <button
+              className={activeView === 'alerts' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setActiveView('alerts')}
+            >
+              Alerts
+            </button>
+            <button
               className={activeView === 'forecasting' ? 'nav-link active' : 'nav-link'}
               onClick={() => setActiveView('forecasting')}
             >
@@ -112,6 +119,7 @@ function App() {
       {activeView === 'portfolio' && <Portfolio />}
       {activeView === 'chat' && <Chat />}
       {activeView === 'upload' && <Upload processingJob={processingJob} setProcessingJob={setProcessingJob} />}
+      {activeView === 'alerts' && <CriticalDateAlerts />}
       {activeView === 'forecasting' && <Forecasting />}
     </div>
   );

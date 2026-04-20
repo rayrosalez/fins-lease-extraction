@@ -2923,6 +2923,112 @@ def reset_demo_status():
 
 
 # ============================================================
+# CRITICAL DATE ALERTS
+# ============================================================
+
+@app.route('/api/alerts/critical-dates', methods=['GET'])
+def get_critical_date_alerts():
+    """Get leases with upcoming critical dates, grouped by urgency tier."""
+    try:
+        query = f"""
+        WITH lease_alerts AS (
+            SELECT
+                s.lease_id,
+                s.tenant_name,
+                s.property_id,
+                s.industry_sector,
+                s.lease_start_date,
+                s.lease_end_date,
+                s.estimated_annual_rent,
+                s.base_rent_psf,
+                s.square_footage,
+                s.annual_escalation_pct,
+                s.lease_type,
+                s.renewal_options,
+                s.renewal_notice_days,
+                s.landlord_name,
+                DATEDIFF(s.lease_end_date, CURRENT_DATE()) AS days_to_expiry,
+                CASE
+                    WHEN DATEDIFF(s.lease_end_date, CURRENT_DATE()) < 0 THEN 'EXPIRED'
+                    WHEN DATEDIFF(s.lease_end_date, CURRENT_DATE()) <= 90 THEN 'CRITICAL'
+                    WHEN DATEDIFF(s.lease_end_date, CURRENT_DATE()) <= 180 THEN 'URGENT'
+                    WHEN DATEDIFF(s.lease_end_date, CURRENT_DATE()) <= 365 THEN 'UPCOMING'
+                    ELSE 'MONITOR'
+                END AS alert_tier,
+                COALESCE(g.total_risk_score, 0) AS risk_score,
+                COALESCE(g.lease_status, 'UNKNOWN') AS risk_status,
+                COALESCE(g.risk_model_used, 'BASIC') AS risk_model
+            FROM {CATALOG}.{SCHEMA}.silver_leases s
+            LEFT JOIN {CATALOG}.{SCHEMA}.gold_lease_risk_scores g
+                ON s.lease_id = g.lease_id
+            WHERE s.tenant_name IS NOT NULL
+              AND DATEDIFF(s.lease_end_date, CURRENT_DATE()) <= 365
+        )
+        SELECT *
+        FROM lease_alerts
+        ORDER BY days_to_expiry ASC
+        """
+
+        data, error = execute_query(query)
+        if error:
+            return jsonify({'error': error}), 500
+
+        alerts = []
+        summary = {'EXPIRED': 0, 'CRITICAL': 0, 'URGENT': 0, 'UPCOMING': 0}
+        total_revenue_at_risk = 0
+
+        for row in data:
+            days = int(row[14]) if row[14] is not None else 0
+            tier = row[15] or 'MONITOR'
+            annual_rent = float(row[6]) if row[6] is not None else 0
+            renewal_notice = int(row[12]) if row[12] is not None else None
+
+            # Calculate if renewal notice deadline has passed
+            notice_deadline_passed = False
+            if renewal_notice and days > 0:
+                notice_deadline_passed = days <= renewal_notice
+
+            if tier in summary:
+                summary[tier] += 1
+                total_revenue_at_risk += annual_rent
+
+            alerts.append({
+                'lease_id': row[0],
+                'tenant_name': row[1],
+                'property_id': row[2],
+                'industry_sector': row[3],
+                'lease_start_date': row[4],
+                'lease_end_date': row[5],
+                'estimated_annual_rent': annual_rent,
+                'base_rent_psf': float(row[7]) if row[7] is not None else 0,
+                'square_footage': float(row[8]) if row[8] is not None else 0,
+                'annual_escalation_pct': float(row[9]) if row[9] is not None else 0,
+                'lease_type': row[10],
+                'renewal_options': row[11],
+                'renewal_notice_days': renewal_notice,
+                'landlord_name': row[13],
+                'days_to_expiry': days,
+                'alert_tier': tier,
+                'risk_score': float(row[16]) if row[16] is not None else 0,
+                'risk_status': row[17],
+                'risk_model': row[18],
+                'notice_deadline_passed': notice_deadline_passed,
+            })
+
+        return jsonify({
+            'alerts': alerts,
+            'summary': summary,
+            'total_revenue_at_risk': total_revenue_at_risk,
+            'total_alerts': len(alerts),
+        })
+
+    except Exception as e:
+        error_msg = f"Exception in critical_date_alerts: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
 # STATIC FILE SERVING (must be at the end, after all API routes)
 # ============================================================
 
