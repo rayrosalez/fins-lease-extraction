@@ -403,11 +403,7 @@ const CriticalDateAlerts = () => {
                           <span className="risk-score-text">{alert.risk_score.toFixed(0)}</span>
                         </td>
                         <td>
-                          {alert.notice_deadline_passed && (
-                            <span className="notice-warning" title="Renewal notice deadline may have passed">
-                              <FiAlertCircle size={16} color="#EF4444" />
-                            </span>
-                          )}
+                          {/* Reserved for future notice alerts */}
                         </td>
                         <td>
                           {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
@@ -469,23 +465,19 @@ const CriticalDateAlerts = () => {
                                 </div>
 
                                 <div className="expanded-section">
-                                  <h4><FiCalendar size={16} /> Renewal & Notices</h4>
+                                  <h4><FiCalendar size={16} /> Expiry Details</h4>
                                   <div className="detail-row">
-                                    <span className="detail-label">Renewal Options</span>
-                                    <span className="detail-value">{alert.renewal_options || 'None specified'}</span>
+                                    <span className="detail-label">Days to Expiry</span>
+                                    <span className="detail-value">{alert.days_to_expiry} days</span>
                                   </div>
                                   <div className="detail-row">
-                                    <span className="detail-label">Notice Period</span>
-                                    <span className="detail-value">
-                                      {alert.renewal_notice_days ? `${alert.renewal_notice_days} days` : 'Not specified'}
-                                    </span>
+                                    <span className="detail-label">Risk Status</span>
+                                    <span className="detail-value">{alert.risk_status || 'N/A'}</span>
                                   </div>
-                                  {alert.notice_deadline_passed && (
-                                    <div className="notice-alert-banner">
-                                      <FiAlertCircle size={16} />
-                                      <span>Renewal notice deadline may have passed! Only {alert.days_to_expiry} days remain but {alert.renewal_notice_days}-day notice is required.</span>
-                                    </div>
-                                  )}
+                                  <div className="detail-row">
+                                    <span className="detail-label">Risk Model</span>
+                                    <span className="detail-value">{alert.risk_model || 'N/A'}</span>
+                                  </div>
                                 </div>
 
                                 <div className="expanded-section">

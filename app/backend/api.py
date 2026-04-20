@@ -2944,8 +2944,6 @@ def get_critical_date_alerts():
                 s.square_footage,
                 s.annual_escalation_pct,
                 s.lease_type,
-                s.renewal_options,
-                s.renewal_notice_days,
                 s.landlord_name,
                 DATEDIFF(s.lease_end_date, CURRENT_DATE()) AS days_to_expiry,
                 CASE
@@ -2978,15 +2976,14 @@ def get_critical_date_alerts():
         total_revenue_at_risk = 0
 
         for row in data:
-            days = int(row[14]) if row[14] is not None else 0
-            tier = row[15] or 'MONITOR'
+            # Columns: 0=lease_id, 1=tenant_name, 2=property_id, 3=industry_sector,
+            # 4=lease_start_date, 5=lease_end_date, 6=estimated_annual_rent,
+            # 7=base_rent_psf, 8=square_footage, 9=annual_escalation_pct,
+            # 10=lease_type, 11=landlord_name, 12=days_to_expiry, 13=alert_tier,
+            # 14=risk_score, 15=risk_status, 16=risk_model
+            days = int(row[12]) if row[12] is not None else 0
+            tier = row[13] or 'MONITOR'
             annual_rent = float(row[6]) if row[6] is not None else 0
-            renewal_notice = int(row[12]) if row[12] is not None else None
-
-            # Calculate if renewal notice deadline has passed
-            notice_deadline_passed = False
-            if renewal_notice and days > 0:
-                notice_deadline_passed = days <= renewal_notice
 
             if tier in summary:
                 summary[tier] += 1
@@ -3004,15 +3001,12 @@ def get_critical_date_alerts():
                 'square_footage': float(row[8]) if row[8] is not None else 0,
                 'annual_escalation_pct': float(row[9]) if row[9] is not None else 0,
                 'lease_type': row[10],
-                'renewal_options': row[11],
-                'renewal_notice_days': renewal_notice,
-                'landlord_name': row[13],
+                'landlord_name': row[11],
                 'days_to_expiry': days,
                 'alert_tier': tier,
-                'risk_score': float(row[16]) if row[16] is not None else 0,
-                'risk_status': row[17],
-                'risk_model': row[18],
-                'notice_deadline_passed': notice_deadline_passed,
+                'risk_score': float(row[14]) if row[14] is not None else 0,
+                'risk_status': row[15],
+                'risk_model': row[16],
             })
 
         return jsonify({
