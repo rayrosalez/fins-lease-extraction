@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSend, FiDatabase, FiTrendingUp, FiSearch, FiUser, FiCpu, FiCode } from 'react-icons/fi';
+import ReactMarkdown from 'react-markdown';
 import './Chat.css';
 
 const Chat = () => {
@@ -159,7 +160,7 @@ const Chat = () => {
                         {formatTimestamp(message.timestamp)}
                       </span>
                     </div>
-                    <div className="message-text">{message.content}</div>
+                    <div className="message-text"><ReactMarkdown>{message.content}</ReactMarkdown></div>
                     {message.sql && (
                       <details className="message-sql">
                         <summary><FiCode size={14} /> View SQL</summary>
