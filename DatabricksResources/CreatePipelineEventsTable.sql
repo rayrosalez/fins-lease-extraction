@@ -1,5 +1,5 @@
-USE CATALOG ray_serverless_catalog;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 CREATE TABLE IF NOT EXISTS pipeline_events (
     event_id BIGINT GENERATED ALWAYS AS IDENTITY,

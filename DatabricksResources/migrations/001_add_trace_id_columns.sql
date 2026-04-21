@@ -1,9 +1,8 @@
 -- Migration 001: Add trace_id columns to existing tables
--- Run this in the fevm-ray-serverless workspace against ray_serverless_catalog.lease_management
 -- Safe to re-run: uses IF NOT EXISTS / TRY_ADD semantics
 
-USE CATALOG ray_serverless_catalog;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Create new audit tables (idempotent)
 CREATE TABLE IF NOT EXISTS upload_trace_map (

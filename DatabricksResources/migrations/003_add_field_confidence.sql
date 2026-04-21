@@ -1,5 +1,5 @@
-USE CATALOG ray_serverless_catalog;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Add field_confidence JSON column to bronze_leases for per-field extraction confidence scores
 ALTER TABLE bronze_leases

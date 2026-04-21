@@ -1,15 +1,15 @@
 # Databricks App Configuration for LeaseMiner
 # Documentation: https://docs.databricks.com/en/dev-tools/databricks-apps/index.html
 #
-# NOTE: Placeholders (__VALUE__) are replaced by setup.sh during deployment.
-# Do not manually edit the deployed version — re-run setup.sh instead.
+# When deployed via DAB (databricks bundle deploy), the config section in
+# databricks.yml overrides these values with bundle variables and resource
+# references. The values below are safe defaults for local development.
 
 command:
   - "/bin/bash"
   - "-c"
   - "pip install -r requirements.txt && python backend/api.py"
 
-# Environment variables for the application
 env:
   - name: FLASK_ENV
     value: "production"
@@ -18,32 +18,31 @@ env:
   - name: PORT
     value: "8080"
   - name: DATABRICKS_CATALOG
-    value: "__DATABRICKS_CATALOG__"
+    value: "REPLACE_ME"
   - name: DATABRICKS_SCHEMA
-    value: "__DATABRICKS_SCHEMA__"
+    value: "lease_management"
   - name: DATABRICKS_VOLUME
-    value: "__DATABRICKS_VOLUME__"
+    value: "raw_lease_docs"
   - name: DATABRICKS_WAREHOUSE_ID
-    value: "__DATABRICKS_WAREHOUSE_ID__"
+    value: "REPLACE_ME"
   - name: INGEST_JOB_ID
-    value: "__INGEST_JOB_ID__"
+    value: "REPLACE_ME"
   - name: PIPELINE_JOB_ID
-    value: "__PIPELINE_JOB_ID__"
+    value: "REPLACE_ME"
 
-# Resources that the app needs access to
 resources:
   - name: sql-warehouse
     sql_warehouse:
       permission: CAN_USE
   - name: claude-endpoint
     serving_endpoint:
-      name: __SERVING_ENDPOINT__
+      name: databricks-claude-sonnet-4-5
       permission: CAN_QUERY
   - name: ingest-job
     job:
-      id: "__INGEST_JOB_ID__"
+      id: "REPLACE_ME"
       permission: CAN_MANAGE_RUN
   - name: pipeline-job
     job:
-      id: "__PIPELINE_JOB_ID__"
+      id: "REPLACE_ME"
       permission: CAN_MANAGE_RUN
