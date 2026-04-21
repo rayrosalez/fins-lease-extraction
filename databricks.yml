@@ -1,14 +1,270 @@
-# Databricks Asset Bundle for LeaseMiner
-# See https://docs.databricks.com/dev-tools/bundles/index.html
-
 bundle:
   name: fins-lease-extraction
 
+variables:
+  catalog:
+    description: Unity Catalog name for all lease extraction tables
+    default: fins_lease_extraction
+  schema:
+    description: Schema within the catalog
+    default: lease_management
+  volume:
+    description: Volume name for raw lease PDF documents
+    default: raw_lease_docs
+  warehouse_id:
+    description: Serverless SQL Warehouse ID
+  serving_endpoint:
+    description: Claude model serving endpoint name
+    default: databricks-claude-sonnet-4-5
+
+workspace:
+  root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+
+artifacts:
+  default:
+    type: files
+    build: ""
+    files:
+      - source: ./DatabricksResources/
+      - source: ./AIBIDashboard/
+
+include:
+  - "resources/*.yml"
+
+# =============================================================================
+# Resources
+# =============================================================================
+resources:
+
+  # ---------------------------------------------------------------------------
+  # Jobs
+  # ---------------------------------------------------------------------------
+  jobs:
+
+    # One-time schema & table setup
+    schema_setup:
+      name: "[${bundle.target}] Lease Extraction - Schema Setup"
+      tags:
+        project: lease-extraction
+      tasks:
+        - task_key: setup_schema
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/00_SchemaSetup.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
+            source: WORKSPACE
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+
+    # Ingestion pipeline (steps 1-2: ingest PDFs + extract structured data)
+    ingest_pipeline:
+      name: "[${bundle.target}] Lease Ingestion Pipeline (Steps 1-2)"
+      tags:
+        project: lease-extraction
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: 01_ingest_documents
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/01_Ingestor.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
+            source: WORKSPACE
+          environment_key: default
+        - task_key: 02_structure_extraction
+          depends_on:
+            - task_key: 01_ingest_documents
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/02_Structurer.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              serving_endpoint: ${var.serving_endpoint}
+            source: WORKSPACE
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+
+    # Full extraction pipeline (steps 1-4: ingest + extract + enrich + promote)
+    full_pipeline:
+      name: "[${bundle.target}] Lease Extraction Pipeline (Full)"
+      tags:
+        project: lease-extraction
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: 01_ingest_documents
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/01_Ingestor.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              volume: ${var.volume}
+            source: WORKSPACE
+          environment_key: default
+        - task_key: 02_structure_extraction
+          depends_on:
+            - task_key: 01_ingest_documents
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/02_Structurer.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              serving_endpoint: ${var.serving_endpoint}
+            source: WORKSPACE
+          environment_key: default
+        - task_key: 03_enrich_entities
+          depends_on:
+            - task_key: 02_structure_extraction
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/03_Enricher.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              serving_endpoint: ${var.serving_endpoint}
+            source: WORKSPACE
+          environment_key: default
+        - task_key: 04_promote_to_silver
+          depends_on:
+            - task_key: 03_enrich_entities
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/04_PromoteBronzeToSilver.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+            source: WORKSPACE
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+
+    # Weekly extraction drift detection
+    drift_detection:
+      name: "[${bundle.target}] Lease Extraction - Drift Detection (Weekly)"
+      tags:
+        project: lease-extraction
+      schedule:
+        quartz_cron_expression: "0 0 8 ? * MON"
+        timezone_id: America/Chicago
+      tasks:
+        - task_key: drift_detection
+          notebook_task:
+            notebook_path: ./DatabricksResources/pipeline/06_ExtractionDriftDetection.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+            source: WORKSPACE
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+
+    # Deploy the AI extraction agent (run once to register in MLflow)
+    deploy_extraction_agent:
+      name: "[${bundle.target}] Deploy Lease Extraction Agent"
+      tags:
+        project: lease-extraction
+      tasks:
+        - task_key: deploy_agent
+          notebook_task:
+            notebook_path: ./DatabricksResources/deploy_extraction_agent.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+            source: WORKSPACE
+          environment_key: agent_env
+      environments:
+        - environment_key: agent_env
+          spec:
+            client: "1"
+            dependencies:
+              - databricks-agents
+              - databricks-sdk
+              - mlflow
+
+  # ---------------------------------------------------------------------------
+  # Databricks App
+  # ---------------------------------------------------------------------------
+  apps:
+    lease_extraction_app:
+      name: lease-extraction-${bundle.target}
+      description: "LeaseMiner — AI-powered lease extraction and portfolio risk analytics"
+      source_code_path: ./app
+      config:
+        command:
+          - "/bin/bash"
+          - "-c"
+          - "pip install -r requirements.txt && python backend/api.py"
+        env:
+          - name: FLASK_ENV
+            value: "production"
+          - name: FLASK_DEBUG
+            value: "0"
+          - name: PORT
+            value: "8080"
+          - name: DATABRICKS_CATALOG
+            value: ${var.catalog}
+          - name: DATABRICKS_SCHEMA
+            value: ${var.schema}
+          - name: DATABRICKS_VOLUME
+            value: ${var.volume}
+          - name: DATABRICKS_WAREHOUSE_ID
+            value: ${var.warehouse_id}
+          - name: INGEST_JOB_ID
+            value: ${resources.jobs.ingest_pipeline.id}
+          - name: PIPELINE_JOB_ID
+            value: ${resources.jobs.full_pipeline.id}
+        resources:
+          - name: sql-warehouse
+            sql_warehouse:
+              id: ${var.warehouse_id}
+              permission: CAN_USE
+          - name: claude-endpoint
+            serving_endpoint:
+              name: ${var.serving_endpoint}
+              permission: CAN_QUERY
+          - name: ingest-job
+            job:
+              id: ${resources.jobs.ingest_pipeline.id}
+              permission: CAN_MANAGE_RUN
+          - name: pipeline-job
+            job:
+              id: ${resources.jobs.full_pipeline.id}
+              permission: CAN_MANAGE_RUN
+
+  # ---------------------------------------------------------------------------
+  # AI/BI Dashboard
+  # ---------------------------------------------------------------------------
+  dashboards:
+    lease_portfolio_analytics:
+      display_name: "[${bundle.target}] Lease Portfolio Analytics"
+      file_path: ./AIBIDashboard/LeasePortfolioAnalytics.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+
+# =============================================================================
+# Targets
+# =============================================================================
 targets:
   dev:
     mode: development
     default: true
     workspace:
-      # Set via: databricks auth login <your-workspace-url>
-      # Or override with: databricks bundle deploy --target dev -p <profile>
+      host: ${DATABRICKS_HOST}
+
+  prod:
+    mode: production
+    workspace:
       host: ${DATABRICKS_HOST}

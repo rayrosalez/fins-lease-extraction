@@ -2,8 +2,8 @@
 -- Groups by uploaded_at so each upload batch gets a single shared trace_id
 -- Safe to re-run: only touches rows where trace_id IS NULL
 
-USE CATALOG ray_serverless_catalog;
-USE SCHEMA lease_management;
+USE CATALOG ${CATALOG};
+USE SCHEMA ${SCHEMA};
 
 -- Backfill bronze_leases: one trace_id per extraction_id
 MERGE INTO bronze_leases AS target
