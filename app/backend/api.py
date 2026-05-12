@@ -1132,13 +1132,14 @@ def validate_record():
                 CURRENT_TIMESTAMP() as verified_at,
                 NULL as raw_document_path,
                 {sql_safe_value(uploaded_at)} as uploaded_at,
-                CURRENT_TIMESTAMP() as updated_at
+                CURRENT_TIMESTAMP() as updated_at,
+                NULL as trace_id
         ) AS source
         ON target.lease_id = source.lease_id
         WHEN MATCHED THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
         """
-        
+
         print(f"Promoting to silver layer...")
         _, silver_error = execute_query(silver_insert)
         
@@ -1418,13 +1419,14 @@ def validate_multiple_records():
                         CURRENT_TIMESTAMP() as verified_at,
                         NULL as raw_document_path,
                         {sql_safe_value(uploaded_at)} as uploaded_at,
-                        CURRENT_TIMESTAMP() as updated_at
+                        CURRENT_TIMESTAMP() as updated_at,
+                        NULL as trace_id
                 ) AS source
                 ON target.lease_id = source.lease_id
                 WHEN MATCHED THEN UPDATE SET *
                 WHEN NOT MATCHED THEN INSERT *
                 """
-                
+
                 _, silver_error = execute_query(silver_insert)
                 
                 if silver_error:
@@ -2773,7 +2775,8 @@ def approve_forecasted_lease(lease_id):
                 CURRENT_TIMESTAMP() as verified_at,
                 NULL as raw_document_path,
                 uploaded_at,
-                CURRENT_TIMESTAMP() as updated_at
+                CURRENT_TIMESTAMP() as updated_at,
+                NULL as trace_id
             FROM {CATALOG}.{SCHEMA}.bronze_leases
             WHERE extraction_id = {lease_id}
         ) AS source
